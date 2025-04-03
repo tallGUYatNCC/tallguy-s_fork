@@ -9,7 +9,7 @@ from flask import request, make_response
 delete_triggered = False  # simple in-memory guard
 
 CSV_PATH = os.path.join(os.path.dirname(__file__), "responses.csv")
-columns = ['Name', 'Age Range', 'Out of Town?', 'Christ Follower', 'Faith Decicion', 'How you found us?']
+columns = ['Name', 'Age Range', 'Local', 'Christ Follower', 'Faith Decicion', 'How you found us?']
 
 df = pd.DataFrame()
 current_chart = "local"
@@ -27,14 +27,16 @@ app.prevent_initial_callbacks='initial_duplicate'
 
 app.layout = lambda: render_layout_with_cookie()
 
+from urllib.parse import urlparse, parse_qs
+
 def render_layout_with_cookie():
     submitted_cookie = request.cookies.get("submitted")
     return html.Div([
-        dcc.Store(id="submission-store", data=(submitted_cookie == "true")),
+        dcc.Location(id="url", refresh=False),
+        dcc.Store(id="submission-store", data="true" if submitted_cookie == "true" else "false"),
         dcc.Store(id="clear-cookie", data=False),
+        dcc.Store(id="is-admin", data=False),  # default False, will be updated later
         html.Div(id="delete-status"),
-        html.Div(id="select-chart-toggle"),
-        html.Div(id="output"),
         html.Div(id="form-error"),
         html.Div(id="page-container", style={
             'maxWidth': '600px',
@@ -46,6 +48,15 @@ def render_layout_with_cookie():
 
 
 
+@app.callback(
+    Output('is-admin', 'data'),
+    Input('url', 'search')
+)
+def extract_admin_flag(search):
+    query = parse_qs(search.lstrip('?'))
+    return query.get('admin', ['false'])[0].lower() == 'true'
+
+
 
 
 @app.callback(
@@ -53,7 +64,10 @@ def render_layout_with_cookie():
     Input("submission-store", "data")
 )
 def render_layout(submitted):
-    return post_submit() if submitted else pre_submit()
+    if submitted == "true":
+        return post_submit()
+    return pre_submit()
+
 
 
 # Form + delete view
@@ -65,7 +79,7 @@ def pre_submit():
         ], style={'marginBottom': '1rem'}),
 
         html.Div([
-            html.Label("Are you from out of town?:",style={'fontWeight': 'bold'}),
+            html.Label("Are you from DC?:",style={'fontWeight': 'bold'}),
             dcc.Dropdown(id='dropdown', options=[{'label': x, 'value': x} for x in ['Yes', 'No']], value='')
         ], style={'marginBottom': '1rem'}),
 
@@ -109,28 +123,42 @@ def pre_submit():
         ], style={'textAlign': 'center', 'marginBottom': '2rem'})
     ])
 
+@app.callback(
+    Output('admin-panel-wrapper-container', 'children'),
+    Input('is-admin', 'data')
+)
+def conditionally_render_admin_section(is_admin):
+    if is_admin:
+        return html.Div([
+            html.Div(id="admin-panel-wrapper", children=[
+                html.Button('Admin', id='admin-toggle', n_clicks=0, style={'opacity': 0.3}),
+                dcc.Input(id='admin-code', type='password', placeholder='Enter admin code', style={'display': 'none'}),
+            ], style={'textAlign': 'center', 'marginBottom': '1rem'}),
+            html.Div(id='admin-panel')
+        ])
+    return ""
+
+
+
+
 def post_submit():
     return html.Div([
-        html.Div([
-            html.Button('Delete responses.csv', id='delete-button', n_clicks=0, style={'color': 'red'}),
-            html.Div(id='delete-status', style={'marginTop': '0.5rem', 'fontStyle': 'italic'})
-        ], style={'marginBottom': '2rem'}),
-
+        html.Div(id="output"),
         html.Div(id="select-chart-toggle", children=
             dcc.RadioItems(
                 id='chart-toggle',
                 options=[
-                    {'label': 'Local', 'value': 'local'},
+                    {'label': 'Geographic', 'value': 'local'},
                     {'label': 'Ages', 'value': 'age'},
                     {'label': 'Christ Followers', 'value': 'christians'},
                     {'label': 'Faith Decicions', 'value': 'faithdecicion'},
-                    {'label': 'Data', 'value': 'data'},
                 ],
                 value='local',
                 inline=True
             ),
             style={'textAlign': 'center', 'marginBottom': '2rem'}
-        )
+        ),
+        html.Div(id="admin-panel-wrapper-container")
     ])
 
 @app.callback(
@@ -185,7 +213,7 @@ def form_submission(n_clicks, inpu, age_val, dropdown, christian, faith, howthey
         required_fields = {
             "Name": inpu,
             "Age Range": age_val,
-            "Out of Town?": dropdown,
+            "Local": dropdown,
             "Christ Follower": christian,
             "Faith Decicion": faith
         }
@@ -215,21 +243,25 @@ def bin_age(age):
         return ">40"
 
 
-# Chart switcher
 @app.callback(
     Output('output', 'children'),
-    Input('chart-toggle', 'value')
+    Input('chart-toggle', 'value'),
+    Input('output', 'n_clicks')  # fake input, won't trigger but keeps Dash alert
 )
-def chart_selection(chart_type):
+def chart_selection(chart_type, _):
+    return get_chart_layout(chart_type)
+    
+
+def get_chart_layout(chart_type):
     if chart_type == "local":
-        return out_of_town()
+        return local_counter()
     elif chart_type == "age":
-        return age_range()
+        return generate_pie_chart_from_column("Age Range", "Age Distribution")
     elif chart_type == "christians":
-        return christ_count()
+        return generate_pie_chart_from_column("Christ Follower", "Christ Follower Count")
     elif chart_type == "faithdecicion":
-        return faith_decicion_count()
-    else:
+        return generate_pie_chart_from_column("Faith Decicion", "Faith Decision Count")
+    elif chart_type == "data":
         return dash_table.DataTable(
             data=df.to_dict('records'),
             columns=[{'name': str(i), 'id': str(i)} for i in df.columns],
@@ -237,35 +269,125 @@ def chart_selection(chart_type):
             style_cell={'textAlign': 'left', 'padding': '5px'},
             style_header={'fontWeight': 'bold'}
         )
+    else:
+        return html.Div("Unknown chart type.")
 
-def out_of_town():
-    count_series = df["Out of Town?"].value_counts()
+
+
+
+def local_counter():
+    label_map = {'Yes': 'Local', 'No': 'Visitor'}
+    renamed_series = df["Local"].map(label_map)
+
+    count_series = renamed_series.value_counts()
     pie_df = pd.DataFrame({'Visitor': count_series.index, 'Count': count_series.values})
-    fig = px.pie(pie_df, names='Visitor', values='Count')
-    fig.update_traces(hovertemplate='%{value}<extra></extra>')
+
+    fig = px.pie(
+        pie_df,
+        names='Visitor',
+        values='Count',
+        color='Visitor',
+        color_discrete_map={'Local': 'blue', 'Visitor': 'purple'},
+        hole=0.1
+    )
+
+    return dcc.Graph(figure=style_pie_chart(fig, "Local vs Visitor"), style={'width': '100%'})
+
+
+def generate_pie_chart_from_column(column_name, title):
+    global df
+    if column_name not in df.columns or df.empty:
+        return html.Div("No data available.", style={'textAlign': 'center', 'color': 'gray'})
+
+    count_series = df[column_name].value_counts()
+    
+    # Automatically cycle through 6 colors
+    default_colors = ['#636EFA', '#EF553B', '#00CC96', '#AB63FA', '#FFA15A', '#19D3F3']
+    
+    fig = px.pie(
+        pd.DataFrame({'Label': count_series.index, 'Count': count_series.values}),
+        names='Label',
+        values='Count',
+        hole=0.1,
+        color_discrete_sequence=default_colors
+    )
+    
+    fig.update_traces(
+        textposition='inside',
+        textinfo='percent+label',
+        hovertemplate='%{label}: %{value}<extra></extra>'
+    )
+    
+    fig.update_layout(
+        title_text=title,
+        title_x=0.5,
+        legend_title_text='',
+        legend=dict(
+            orientation="h",
+            yanchor="bottom",
+            y=-0.2,
+            xanchor="center",
+            x=0.5
+        ),
+        margin=dict(t=50, b=80, l=30, r=30),
+        height=400
+    )
+    
     return dcc.Graph(figure=fig)
 
-def age_range():
-    count_series = df["Age Range"].value_counts()
-    pie_df = pd.DataFrame({'Age': count_series.index, 'Count': count_series.values})
-    fig = px.pie(pie_df, names='Age', values='Count')
-    fig.update_traces(hovertemplate='%{value}<extra></extra>')
-    return dcc.Graph(figure=fig)
 
-def christ_count():
-    count_series = df["Christ Follower"].value_counts()
-    pie_df = pd.DataFrame({'Christians': count_series.index, 'Count': count_series.values})
-    fig = px.pie(pie_df, names='Christians', values='Count')
-    fig.update_traces(hovertemplate='%{value}<extra></extra>')
-    return dcc.Graph(figure=fig)
+from dash import MATCH
 
-def faith_decicion_count():
-    count_series = df["Faith Decicion"].value_counts()
-    pie_df = pd.DataFrame({'Faith Decicion': count_series.index, 'Count': count_series.values})
-    fig = px.pie(pie_df, names='Faith Decicion', values='Count')
-    fig.update_traces(hovertemplate='%{value}<extra></extra>')
-    return dcc.Graph(figure=fig)
+@app.callback(
+    Output('admin-code', 'style'),
+    Input('admin-toggle', 'n_clicks'),
+    prevent_initial_call=True
+)
+def show_code_input(n):
+    return {'display': 'inline-block', 'marginTop': '10px'}
 
+
+ADMIN_CODE = "letmein123"  # You can make this env-based for real security
+
+@app.callback(
+    Output('admin-panel', 'children'),
+    Input('admin-code', 'value'),
+    prevent_initial_call=True
+)
+def grant_admin_access(code):
+    if code == ADMIN_CODE:
+        return html.Div([
+            html.Hr(),
+            html.H4("Admin Tools"),
+            html.Button("Download CSV", id="download-btn"),
+            html.Button("View Data", id="data_button"),
+            dcc.Download(id="download"),
+            html.Div([
+            html.Button('Delete responses.csv', id='delete-button', n_clicks=0, style={'color': 'red'}),
+            html.Div(id='delete-status', style={'marginTop': '0.5rem', 'fontStyle': 'italic'})
+            ], style={'marginBottom': '2rem'}),
+        ])
+    raise PreventUpdate
+
+@app.callback(
+        Output('output','children', allow_duplicate=True),
+        Input('data_button','n_clicks'),
+        prevent_initial_call=True
+)
+def view_data(n_clicks):
+    if n_clicks > 0:
+        return get_chart_layout("data")
+    raise PreventUpdate
+
+
+@app.callback(
+        Output("download", "data"),
+        Input('download-btn','n_clicks'),
+        prevent_initial_call=True
+)
+def download_data(n_clicks):
+    if n_clicks > 0:
+        return dcc.send_data_frame(df.to_csv, "responses.csv", index=False)
 
 @app.server.after_request
 def apply_cookie_flags(response):
@@ -277,9 +399,30 @@ def apply_cookie_flags(response):
         response.set_cookie("submitted", "", max_age=0)
     return response
 
+def style_pie_chart(fig, title):
+    fig.update_traces(
+        textposition='inside',
+        textinfo='percent+label',
+        hovertemplate='%{label}: %{value}<extra></extra>'
+    )
+    fig.update_layout(
+        title_text=title,
+        title_x=0.5,
+        legend_title_text='',
+        legend=dict(
+            orientation="h",
+            yanchor="bottom",
+            y=-0.2,
+            xanchor="center",
+            x=0.5
+        ),
+        margin=dict(t=50, b=80, l=30, r=30),
+        height=400
+    )
+    return fig
 
 
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 8050))
-    app.run(host='0.0.0.0', port=port)
+    app.run(host='0.0.0.0', port=port, use_reloader=True)

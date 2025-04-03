@@ -9,7 +9,14 @@ import kagglehub
 import os
 import dash_bootstrap_components as dbc
 
-df = pd.DataFrame(columns=['Name', 'Age Range', 'Out of Town?'])
+CSV_PATH = os.path.join(os.path.dirname(__file__), "responses.csv")
+
+df = pd.DataFrame()
+
+if os.path.exists(CSV_PATH):
+    df = pd.read_csv(CSV_PATH)
+else:
+    df = pd.DataFrame(columns=['Name', 'Age Range', 'Out of Town?'])
 
 # App init
 app = Dash(__name__)
@@ -57,32 +64,53 @@ app.layout = html.Div([
     html.Button('Submit', id='submit-button', n_clicks=0),
 
     html.Br(), html.Br(),
-    dash_table.DataTable(
-        data=df.to_dict('records'),
-        columns=[{'name': i, 'id': i} for i in df.columns],
-        style_table={'overflowX': 'auto'},
-        style_cell={'textAlign': 'left', 'padding': '5px'},
-        style_header={'fontWeight': 'bold'}
-    )
-    html.Div(id='output')
+
+    html.Div(id='output'),
+    html.Div(id='pie-output')
 ])
 
 # Callbacks
 @app.callback(
     Output('output', 'children'),
+    Output('pie-output','children'),
     State('inpu','value'),
     State('radio','value'),
     State('dropdown','value'),
     Input('submit-button', 'n_clicks'),
 )
 def form_submission(inpu,radio,dropdown,n_clicks):
+    global df
     if n_clicks > 0:
         new_row = pd.DataFrame([{'Name': inpu, 'Age Range': radio, 'Out of Town?': dropdown}])
 
         # Append using concat
         df = pd.concat([df, new_row], ignore_index=True)
-    return ""
 
+        # Saves the response into CSV file stored locally
+        df.to_csv(CSV_PATH, index=False)
+
+        # Sets the information into the data table and then also pulls out_of_town()
+        return ([dash_table.DataTable(
+        data=df.to_dict('records'),
+        columns=[{'name': i, 'id': i} for i in df.columns],
+        style_table={'overflowX': 'auto'},
+        style_cell={'textAlign': 'left', 'padding': '5px'},
+        style_header={'fontWeight': 'bold'}
+    ),out_of_town()])
+    return "",""
+
+def out_of_town():
+    # Get values from df
+    count_series = df["Out of Town?"].value_counts()
+
+    # Make a pie chart from the data
+    pie_df = pd.DataFrame({
+        'Out of Town?': count_series.index,
+        'Count': count_series.values
+    })
+    fig = px.pie(pie_df, names='Out of Town?', values='Count')
+    pieChart = html.Div([html.Div(children="From out of town?"),dcc.Graph(figure=fig)])
+    return pieChart
 
 # Run server
 if __name__ == '__main__':

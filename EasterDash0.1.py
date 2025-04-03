@@ -1,7 +1,7 @@
 # app.py
 
 import dash
-from dash import Dash, dcc, html, Input, Output, State, ctx
+from dash import Dash, dcc, html, Input, Output, State, ctx, dash_table
 import plotly.express as px
 import pandas as pd
 import pydash as _
@@ -9,15 +9,7 @@ import kagglehub
 import os
 import dash_bootstrap_components as dbc
 
-# Download latest version
-path = kagglehub.dataset_download("sujaykapadnis/nfl-stadium-attendance-dataset")
-
-#print("Path to dataset files:", path)
-csv_path = os.path.join(path, "attendance.csv")
-
-# Sample data
-df = pd.read_csv(csv_path)
-df_sorted = df.sort_values(by='year', ascending=False)
+df = pd.DataFrame(columns=['Name', 'Age Range', 'Out of Town?'])
 
 # App init
 app = Dash(__name__)
@@ -25,25 +17,28 @@ app.title = "Pydash Dashboard"
 
 # Layout
 app.layout = html.Div([
-    html.Label("Choose an option from the dropdown:"),
+    html.Label("Are you from out of town?:"),
     dcc.Dropdown(
         id='dropdown',
         options=[
-            {'label': 'Option A', 'value': 'A'},
-            {'label': 'Option B', 'value': 'B'},
-            {'label': 'Option C', 'value': 'C'}
+            {'label': 'Yes', 'value': 'Yes'},
+            {'label': 'No', 'value': 'No'},
         ],
-        value='A'
+        value='No'
     ),
 
     html.Br(),
 
-    html.Label("Pick one radio option:"),
+    html.Label("Select an Age Range:"),
     dcc.RadioItems(
         id='radio',
         options=[
-            {'label': 'Radio 1', 'value': '1'},
-            {'label': 'Radio 2', 'value': '2'}
+            {'label': '<18', 'value': '<18'},
+            {'label': '18-25', 'value': '18-25'},
+            {'label': '18-25', 'value': '18-25'},
+            {'label': '25-40', 'value': '25-40'},
+            {'label': '>40', 'value': '>40'},
+            
         ],
         value='1',
         inline=True
@@ -51,7 +46,7 @@ app.layout = html.Div([
 
     html.Br(),
 
-    html.Label("Enter some text:"),
+    html.Label("Enter Your Name:"),
     dcc.Input(
         id='inpu',
         type='text',
@@ -62,7 +57,13 @@ app.layout = html.Div([
     html.Button('Submit', id='submit-button', n_clicks=0),
 
     html.Br(), html.Br(),
-
+    dash_table.DataTable(
+        data=df.to_dict('records'),
+        columns=[{'name': i, 'id': i} for i in df.columns],
+        style_table={'overflowX': 'auto'},
+        style_cell={'textAlign': 'left', 'padding': '5px'},
+        style_header={'fontWeight': 'bold'}
+    )
     html.Div(id='output')
 ])
 
@@ -76,7 +77,10 @@ app.layout = html.Div([
 )
 def form_submission(inpu,radio,dropdown,n_clicks):
     if n_clicks > 0:
-        return f"Submitted → Dropdown: {dropdown}, Radio: {radio}, Input: {inpu}"
+        new_row = pd.DataFrame([{'Name': inpu, 'Age Range': radio, 'Out of Town?': dropdown}])
+
+        # Append using concat
+        df = pd.concat([df, new_row], ignore_index=True)
     return ""
 
 

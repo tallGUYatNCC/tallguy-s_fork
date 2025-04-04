@@ -1,10 +1,52 @@
 import dash
-from dash import Dash, dcc, html, Input, Output, State, ctx, dash_table, no_update
+from dash import Dash, dcc, html, Input, Output, State, ctx, dash_table, no_update, MATCH
 from dash.exceptions import PreventUpdate
 import plotly.express as px
 import pandas as pd
 import os
 from flask import request, make_response
+# auth_setup.py (optional) or top of app.py
+import os
+from functools import wraps
+from flask import redirect, session, url_for, request
+from authlib.integrations.flask_client import OAuth
+from dotenv import load_dotenv
+
+AUTH0_CLIENT_ID = os.environ.get("AUTH0_CLIENT_ID", "your-client-id")
+AUTH0_CLIENT_SECRET = os.environ.get("AUTH0_CLIENT_SECRET", "your-client-secret")
+AUTH0_DOMAIN = os.environ.get("AUTH0_DOMAIN", "your-auth0-domain.auth0.com")
+ADMIN_EMAIL = os.environ.get("ADMIN_EMAIL", "admin@example.com")
+FLASK_SECRET_KEY = os.environ.get("FLASK_SECRET_KEY", "super-secret-key")
+
+
+
+def is_admin_user():
+    return session.get('profile', {}).get('email') == os.getenv("ADMIN_EMAIL")
+
+
+oauth = OAuth()
+auth0 = oauth.register(
+    'auth0',
+    client_id=os.getenv('AUTH0_CLIENT_ID'),
+    client_secret=os.getenv('AUTH0_CLIENT_SECRET'),
+    api_base_url=f"https://{os.getenv('AUTH0_DOMAIN')}",
+    access_token_url=f"https://{os.getenv('AUTH0_DOMAIN')}/oauth/token",
+    authorize_url=f"https://{os.getenv('AUTH0_DOMAIN')}/authorize",
+    client_kwargs={
+        'scope': 'openid profile email'
+    },
+    server_metadata_url=f"https://{os.getenv('AUTH0_DOMAIN')}/.well-known/openid-configuration"
+)
+
+
+def requires_auth(f):
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        if 'profile' not in session:
+            return redirect('/login')
+        return f(*args, **kwargs)
+    return decorated
+
 
 delete_triggered = False  # simple in-memory guard
 
@@ -19,11 +61,14 @@ if os.path.exists(CSV_PATH):
 else:
     df = pd.DataFrame(columns=columns)
 
-app = Dash(__name__)
+app = Dash(__name__, routes_pathname_prefix="/")
+server = app.server
+oauth.init_app(server)
+app.server.secret_key = os.getenv("FLASK_SECRET_KEY", "super-secret-dev-key")
 app.title = "Pydash Dashboard"
+prevent_initial_call='initial_duplicate'
+app.prevent_initial_callbacks = False
 app.config.suppress_callback_exceptions = True
-app.prevent_initial_callbacks='initial_duplicate'
-
 
 app.layout = lambda: render_layout_with_cookie()
 
@@ -35,7 +80,9 @@ def render_layout_with_cookie():
         dcc.Location(id="url", refresh=False),
         dcc.Store(id="submission-store", data="true" if submitted_cookie == "true" else "false"),
         dcc.Store(id="clear-cookie", data=False),
+        dcc.Store(id="chart-request", data="local"),
         dcc.Store(id="is-admin", data=False),  # default False, will be updated later
+        html.Div(id="auth-buttons", style={'textAlign': 'right', 'marginBottom': '1rem'}),  # <- added
         html.Div(id="delete-status"),
         html.Div(id="form-error"),
         html.Div(id="page-container", style={
@@ -45,6 +92,24 @@ def render_layout_with_cookie():
             'textAlign': 'left'
         })
     ], style={'fontFamily': 'Arial, sans-serif'})
+
+
+@app.callback(
+    Output("auth-buttons", "children"),
+    Input("url", "search")
+)
+def show_auth_buttons(search):
+    query = parse_qs(search.lstrip("?"))
+    is_admin_query = query.get("admin", ["false"])[0].lower() == "true"
+
+    if not is_admin_query:
+        return ""
+
+    if "profile" in session:
+        return html.A("Logout", href="/logout", style={"marginRight": "10px"})
+    else:
+        return html.A("Login", href="/login?next=/?admin=true")
+
 
 
 
@@ -64,9 +129,11 @@ def extract_admin_flag(search):
     Input("submission-store", "data")
 )
 def render_layout(submitted):
+    print("Submission store data:", submitted)  # Add this line to debug
     if submitted == "true":
         return post_submit()
     return pre_submit()
+
 
 
 
@@ -123,27 +190,35 @@ def pre_submit():
         ], style={'textAlign': 'center', 'marginBottom': '2rem'})
     ])
 
+
 @app.callback(
     Output('admin-panel-wrapper-container', 'children'),
-    Input('is-admin', 'data')
+    Input('submission-store', 'data')
 )
-def conditionally_render_admin_section(is_admin):
-    if is_admin:
+def show_admin_if_allowed(_):
+    if is_admin_user():
         return html.Div([
             html.Div(id="admin-panel-wrapper", children=[
-                html.Button('Admin', id='admin-toggle', n_clicks=0, style={'opacity': 0.3}),
-                dcc.Input(id='admin-code', type='password', placeholder='Enter admin code', style={'display': 'none'}),
-            ], style={'textAlign': 'center', 'marginBottom': '1rem'}),
-            html.Div(id='admin-panel')
+                html.Hr(),
+                html.H4("Admin Tools"),
+                html.Button("Download CSV", id="download-btn"),
+                html.Button("View Data", id="data_button"),
+                dcc.Download(id="download"),
+                html.Div([
+                    html.Button('Delete responses.csv', id='delete-button', n_clicks=0, style={'color': 'red'}),
+                    html.Div(id='delete-status', style={'marginTop': '0.5rem', 'fontStyle': 'italic'})
+                ], style={'marginBottom': '2rem'}),
+            ])
         ])
     return ""
 
 
 
 
+
 def post_submit():
     return html.Div([
-        html.Div(id="output"),
+        html.Div(id="chart-output"),
         html.Div(id="select-chart-toggle", children=
             dcc.RadioItems(
                 id='chart-toggle',
@@ -187,12 +262,17 @@ def delete_csv(n_clicks):
     raise PreventUpdate
 
 
-
-
-
-# Submit form
 @app.callback(
-    Output('output', 'children', allow_duplicate=True),
+    Output('chart-output', 'children'),
+    Input('chart-request', 'data')
+)
+def update_chart_view(chart_type):
+    return get_chart_layout(chart_type)
+
+
+
+@app.callback(
+    Output('chart-request', 'data', allow_duplicate=True),
     Output('submission-store', 'data'),
     Output('form-error', 'children'),
     Input('submit-button', 'n_clicks'),
@@ -205,11 +285,10 @@ def delete_csv(n_clicks):
     prevent_initial_call=True
 )
 def form_submission(n_clicks, inpu, age_val, dropdown, christian, faith, howtheyfoundus):
-    global df
+    print("Form callback triggered!", n_clicks, inpu, age_val, dropdown, christian, faith, howtheyfoundus)
     if n_clicks > 0:
-        request._set_cookie = True  # Flag to set cookie in response
+        request._set_cookie = True
         age_category = bin_age(age_val)
-        # Trim all required fields
         required_fields = {
             "Name": inpu,
             "Age Range": age_val,
@@ -220,17 +299,18 @@ def form_submission(n_clicks, inpu, age_val, dropdown, christian, faith, howthey
 
         missing = [field for field, value in required_fields.items() if not str(value).strip()]
         if missing:
-            return "", False, f"⚠️ Please fill out: {', '.join(missing)}."
+            return no_update, False, f"⚠️ Please fill out: {', '.join(missing)}."
 
-        # Add the row
         new_row = pd.DataFrame(
             [[inpu, age_category, dropdown, christian, faith, howtheyfoundus]],
             columns=columns
         )
+        global df
         df = pd.concat([df, new_row], ignore_index=True)
         df.to_csv(CSV_PATH, index=False)
-        return chart_selection("local"), True, ""
-    return "", False, ""
+        return "local", "true", ""
+    return no_update, False, ""
+
 
 def bin_age(age):
     if age < 18:
@@ -244,12 +324,25 @@ def bin_age(age):
 
 
 @app.callback(
-    Output('output', 'children'),
-    Input('chart-toggle', 'value'),
-    Input('output', 'n_clicks')  # fake input, won't trigger but keeps Dash alert
+    Output("chart-request", "data", allow_duplicate=True),
+    Input("chart-toggle", "value"),
+    prevent_initial_call=True
 )
-def chart_selection(chart_type, _):
-    return get_chart_layout(chart_type)
+def handle_chart_toggle(toggle_value):
+    return toggle_value
+
+@app.callback(
+    Output("chart-request", "data", allow_duplicate=True),
+    Input("data_button", "n_clicks"),
+    prevent_initial_call=True
+)
+def handle_data_click(n_clicks):
+    if n_clicks:
+        return "data"
+    raise PreventUpdate
+
+
+
     
 
 def get_chart_layout(chart_type):
@@ -369,15 +462,6 @@ def grant_admin_access(code):
         ])
     raise PreventUpdate
 
-@app.callback(
-        Output('output','children', allow_duplicate=True),
-        Input('data_button','n_clicks'),
-        prevent_initial_call=True
-)
-def view_data(n_clicks):
-    if n_clicks > 0:
-        return get_chart_layout("data")
-    raise PreventUpdate
 
 
 @app.callback(
@@ -421,8 +505,54 @@ def style_pie_chart(fig, title):
     )
     return fig
 
+@server.route('/login')
+def login():
+    redirect_uri = url_for('callback', _external=True, _scheme='https')
+    next_url = request.args.get('next', '/?admin=true')  # default to /?admin=true
+    session['next_url'] = next_url
+    return auth0.authorize_redirect(redirect_uri=redirect_uri)
+
+@server.route('/callback')
+def callback():
+    try:
+        auth0.authorize_access_token()
+        resp = auth0.get('userinfo')
+        userinfo = resp.json()
+        print("Auth0 Userinfo:", userinfo)  # <- Inspect this
+
+        session['profile'] = {
+            'user_id': userinfo.get('sub'),
+            'name': userinfo.get('name') or userinfo.get('nickname'),
+            'email': userinfo.get('email', 'no-email@unknown.fake')  # fallback
+        }
+
+        next_url = session.pop('next_url', '/')
+        return redirect(next_url)
+    except Exception as e:
+        import traceback
+        print("Callback error:", str(e))
+        traceback.print_exc()
+        return f"Callback failed: {e}", 500
+
+
+
+
+@server.route('/logout')
+def logout():
+    session.clear()
+    return redirect(
+        f"https://{os.getenv('AUTH0_DOMAIN')}/v2/logout?" +
+        f"returnTo={url_for('index', _external=True, _scheme='https')}&client_id={os.getenv('AUTH0_CLIENT_ID')}"
+)
+
+@server.route('/')
+def index():
+    return "App is running"
+
+
 
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 8050))
     app.run(host='0.0.0.0', port=port, use_reloader=True)
+

@@ -2,4 +2,5 @@ dash
 pandas
 plotly
 flask
-gunicorn
+authlib
+python-dotenv

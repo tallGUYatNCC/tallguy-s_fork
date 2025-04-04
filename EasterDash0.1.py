@@ -333,7 +333,7 @@ def form_submission(n_clicks, inpu, age_val, dropdown, christian, faith, howthey
 
         missing = [field for field, value in required_fields.items() if not str(value).strip()]
         if missing:
-            return no_update, False, f"⚠️ Please fill out: {', '.join(missing)}.", False
+            return no_update, no_update, f"⚠️ Please fill out: {', '.join(missing)}.", False
 
         new_row = pd.DataFrame(
             [[inpu, age_category, age_val, dropdown, christian, faith, howtheyfoundus]],

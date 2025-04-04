@@ -1,6 +1,7 @@
 import dash
-from dash import Dash, dcc, html, Input, Output, State, ctx, dash_table, no_update, MATCH
+from dash import Dash, dcc, html, Input, Output, State, ctx, dash_table, no_update, MATCH, callback_context
 from dash.exceptions import PreventUpdate
+from dash import ClientsideFunction
 import plotly.express as px
 import pandas as pd
 import os
@@ -51,7 +52,7 @@ def requires_auth(f):
 delete_triggered = False  # simple in-memory guard
 
 CSV_PATH = os.path.join(os.path.dirname(__file__), "responses.csv")
-columns = ['Name', 'Age Range', 'Local', 'Christ Follower', 'Faith Decicion', 'How you found us?']
+columns = ['Name', 'Age Range', 'Age', 'Local', 'Christ Follower', 'Faith Decicion', 'How you found us?']
 
 df = pd.DataFrame()
 current_chart = "local"
@@ -70,20 +71,21 @@ prevent_initial_call='initial_duplicate'
 app.prevent_initial_callbacks = False
 app.config.suppress_callback_exceptions = True
 
+
 app.layout = lambda: render_layout_with_cookie()
 
 from urllib.parse import urlparse, parse_qs
 
 def render_layout_with_cookie():
-    submitted_cookie = request.cookies.get("submitted")
+    submitted_cookie = request.cookies.get("submitted", "false")
     return html.Div([
         dcc.Location(id="url", refresh=False),
-        dcc.Store(id="submission-store", data="true" if submitted_cookie == "true" else "false"),
+        html.Div(id="dev-cookie-status-wrapper"),
+        dcc.Store(id="submission-store", data=submitted_cookie),  # Cookie comes in directly
         dcc.Store(id="loading-flag", data=False),
-        dcc.Store(id="clear-cookie", data=False),
         dcc.Store(id="chart-request", data="local"),
-        dcc.Store(id="is-admin", data=False),  # default False, will be updated later
-        html.Div(id="auth-buttons", style={'textAlign': 'right', 'marginBottom': '1rem'}),  # <- added
+        dcc.Store(id="is-admin", data=False),
+        html.Div(id="auth-buttons", style={'textAlign': 'right', 'marginBottom': '1rem'}),
         html.Div(id="delete-status"),
         html.Div(id="form-error"),
         html.Div(id="page-container", style={
@@ -93,6 +95,8 @@ def render_layout_with_cookie():
             'textAlign': 'left'
         })
     ], style={'fontFamily': 'Arial, sans-serif'})
+
+
 
 
 @app.callback(
@@ -206,6 +210,7 @@ def show_admin_if_allowed(_):
                 html.Div([
                     html.Button("Download CSV", id="download-btn", className="custom-button"),
                     html.Button("View Data", id="data_button", className="custom-button"),
+                    html.Button("Clear Cookies (Dev)", id="dev-clear-cookies", n_clicks=0,className="custom-button"),
                     html.Button('Delete responses.csv', id='delete-button', n_clicks=0, style={'color': 'red'},className="custom-button-delete"),
                     html.Div(id='delete-status', style={'marginTop': '0.5rem', 'fontStyle': 'italic'})
                 ], style={'marginBottom': '2rem','textAlign':'center'}),
@@ -239,7 +244,7 @@ def post_submit():
                 value='local',
                 inline=True,
                 className="graph-radio-group"),
-            style={'textAlign': 'center', 'marginBottom': '2rem'}
+            style={'textAlign': 'center', 'marginBottom': '2rem', 'marginTop':'40px'}
         ),
         html.Div(id="admin-panel-wrapper-container")
     ])
@@ -247,12 +252,17 @@ def post_submit():
 
 @app.callback(
     Output('delete-status', 'children'),
-    Output('clear-cookie', 'data'),
     Input('delete-button', 'n_clicks'),
     prevent_initial_call=True
 )
 def delete_csv(n_clicks):
-    global df, delete_triggered
+    global df
+    if os.path.exists(CSV_PATH):
+        os.remove(CSV_PATH)
+        df = pd.DataFrame(columns=columns)
+        request._clear_cookie = True
+        return "✅ responses.csv deleted. Refreshing..."
+    return "responses.csv does not exist."
 
     # Hard stop if already triggered
     if delete_triggered:
@@ -292,7 +302,7 @@ def update_chart_view(chart_type):
 
 @app.callback(
     Output('chart-request', 'data', allow_duplicate=True),
-    Output('submission-store', 'data'),
+    Output('submission-store', 'data', allow_duplicate=True),
     Output('form-error', 'children'),
     Output('loading-flag', 'data', allow_duplicate=True),  # New output to trigger loading
     Input('submit-button', 'n_clicks'),
@@ -323,7 +333,7 @@ def form_submission(n_clicks, inpu, age_val, dropdown, christian, faith, howthey
             return no_update, False, f"⚠️ Please fill out: {', '.join(missing)}.", False
 
         new_row = pd.DataFrame(
-            [[inpu, age_category, dropdown, christian, faith, howtheyfoundus]],
+            [[inpu, age_category, age_val, dropdown, christian, faith, howtheyfoundus]],
             columns=columns
         )
 
@@ -378,7 +388,7 @@ def get_chart_layout(chart_type):
     if chart_type == "local":
         return local_counter()
     elif chart_type == "age":
-        return generate_pie_chart_from_column("Age Range", "Age Distribution")
+        return html.Div([generate_pie_chart_from_column("Age Range", "Age Distribution"),generate_bar_chart_from_column("Age","Ages in attendance")])
     elif chart_type == "christians":
         return generate_pie_chart_from_column("Christ Follower", "Christ Follower Count")
     elif chart_type == "faithdecicion":
@@ -457,6 +467,40 @@ def generate_pie_chart_from_column(column_name, title):
     
     return dcc.Graph(figure=fig)
 
+def generate_bar_chart_from_column(column_name, title):
+    global df
+    if column_name not in df.columns or df.empty:
+        return html.Div("No data available.", style={'textAlign': 'center', 'color': 'gray'})
+
+    count_series = df[column_name].value_counts()
+
+    # Automatically cycle through 6 colors
+    default_colors = ['#636EFA', '#EF553B', '#00CC96', '#AB63FA', '#FFA15A', '#19D3F3']
+
+    fig = px.bar(
+        pd.DataFrame({'Label': count_series.index, 'Count': count_series.values}),
+        x='Label',
+        y='Count',
+        color='Label',
+        color_discrete_sequence=default_colors,
+        title=title
+    )
+
+    fig.update_traces(
+        hovertemplate='%{x}: %{y}<extra></extra>'
+    )
+
+    fig.update_layout(
+        xaxis_title=None,
+        yaxis_title="Count",
+        title_x=0.5,
+        margin=dict(t=50, b=80, l=30, r=30),
+        height=400,
+        showlegend=False
+    )
+
+    return dcc.Graph(figure=fig)
+
 
 from dash import MATCH
 
@@ -483,13 +527,32 @@ def grant_admin_access(code):
             html.H4("Admin Tools"),
             html.Button("Download CSV", id="download-btn", type="button", className="custom-button", classNameProp=True),
             html.Button("View Data", id="data_button", className="custom-button", classNameProp=True, type="button"),
+            html.Button("Clear Cookies (Dev)", id="dev-clear-cookies", n_clicks=0, className="custom-button"),
             dcc.Download(id="download"),
             html.Div([
             html.Button('Delete responses.csv', id='delete-button', n_clicks=0, style={'color': 'red'}, className="custom-button", classNameProp=True),
             html.Div(id='delete-status', style={'marginTop': '0.5rem', 'fontStyle': 'italic'})
             ], style={'marginBottom': '2rem'}),
-        ], id='admin-stuff')
+        ], id='admin-stuff', style={'backgroundColor':'#888'})
     raise PreventUpdate
+
+@app.callback(
+    Output('dev-cookie-status-wrapper', 'children'),
+    Input('dev-clear-cookies', 'n_clicks'),
+    prevent_initial_call=True
+)
+def dev_clear_cookie(n_clicks):
+    # This line ensures only real user clicks count
+    if ctx.triggered_id != 'dev-clear-cookies' or not n_clicks:
+        raise PreventUpdate
+
+    print(">> Clearing cookie (from button)")
+    request._clear_cookie = True
+    return html.Div([
+        html.Div("✅ Cookie cleared!", id="dev-cookie-status"),
+        html.Script("setTimeout(() => window.location.reload(), 500);")
+    ])
+
 
 
 
@@ -504,13 +567,19 @@ def download_data(n_clicks):
 
 @app.server.after_request
 def apply_cookie_flags(response):
-    # Set cookie when form is submitted
     if getattr(request, "_set_cookie", False):
-        response.set_cookie("submitted", "true", max_age=60*60*24)  # 1 day
-    # Clear cookie when delete is triggered
+        print(">> Setting cookie")
+        response.set_cookie(
+            "submitted", "true", max_age=60*60*24,
+            path="/", samesite="Lax", secure=False  # Adjust secure=True if using HTTPS
+        )
     if getattr(request, "_clear_cookie", False):
-        response.set_cookie("submitted", "", max_age=0)
+        print(">> Clearing cookie")
+        response.set_cookie("submitted", "", max_age=0, path="/")
     return response
+
+
+
 
 def style_pie_chart(fig, title):
     fig.update_traces(
@@ -577,7 +646,6 @@ def logout():
 @server.route('/')
 def index():
     return "App is running"
-
 
 
 

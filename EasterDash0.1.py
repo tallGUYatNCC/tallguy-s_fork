@@ -201,15 +201,15 @@ def show_admin_if_allowed(_):
             html.Div(id="admin-panel-wrapper", children=[
                 html.Hr(),
                 html.H4("Admin Tools"),
-                html.Button("Download CSV", id="download-btn"),
-                html.Button("View Data", id="data_button"),
                 dcc.Download(id="download"),
                 html.Div([
-                    html.Button('Delete responses.csv', id='delete-button', n_clicks=0, style={'color': 'red'}),
+                    html.Button("Download CSV", id="download-btn", className="custom-button"),
+                    html.Button("View Data", id="data_button", className="custom-button"),
+                    html.Button('Delete responses.csv', id='delete-button', n_clicks=0, style={'color': 'red'},className="custom-button-delete"),
                     html.Div(id='delete-status', style={'marginTop': '0.5rem', 'fontStyle': 'italic'})
-                ], style={'marginBottom': '2rem'}),
+                ], style={'marginBottom': '2rem','textAlign':'center'}),
             ])
-        ])
+        ], style={'textAlign':'center'})
     return ""
 
 
@@ -219,6 +219,7 @@ def show_admin_if_allowed(_):
 def post_submit():
     return html.Div([
         html.Div(id="chart-output"),
+        html.Br(),
         html.Div(id="select-chart-toggle", children=
             dcc.RadioItems(
                 id='chart-toggle',
@@ -229,8 +230,8 @@ def post_submit():
                     {'label': 'Faith Decicions', 'value': 'faithdecicion'},
                 ],
                 value='local',
-                inline=True
-            ),
+                inline=True,
+                className="graph-radio-group"),
             style={'textAlign': 'center', 'marginBottom': '2rem'}
         ),
         html.Div(id="admin-panel-wrapper-container")
@@ -452,14 +453,14 @@ def grant_admin_access(code):
         return html.Div([
             html.Hr(),
             html.H4("Admin Tools"),
-            html.Button("Download CSV", id="download-btn"),
-            html.Button("View Data", id="data_button"),
+            html.Button("Download CSV", id="download-btn", type="button", className="custom-button", classNameProp=True),
+            html.Button("View Data", id="data_button", className="custom-button", classNameProp=True, type="button"),
             dcc.Download(id="download"),
             html.Div([
-            html.Button('Delete responses.csv', id='delete-button', n_clicks=0, style={'color': 'red'}),
+            html.Button('Delete responses.csv', id='delete-button', n_clicks=0, style={'color': 'red'}, className="custom-button", classNameProp=True),
             html.Div(id='delete-status', style={'marginTop': '0.5rem', 'fontStyle': 'italic'})
             ], style={'marginBottom': '2rem'}),
-        ])
+        ], id='admin-stuff')
     raise PreventUpdate
 
 

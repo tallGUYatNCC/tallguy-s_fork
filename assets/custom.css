@@ -1,0 +1,71 @@
+/* Target the span text part of radio buttons */
+.graph-radio-group input[type="radio"] {
+  display: none;
+}
+
+.graph-radio-group label {
+  display: inline-block;
+  margin: 4px 10px;
+  padding: 6px 14px;
+  border-radius: 6px;
+  background-color: #eee;
+  color: #000;
+  border: 1px solid #888;
+  transition: background-color 0.2s ease, color 0.2s ease;
+  cursor: pointer;
+}
+
+#admin-stuff button {
+  margin: 4px 10px !important;
+  padding: 6px 14px !important;
+  border-radius: 6px !important;
+  background-color: #eee !important;
+  color: #000 !important;
+  border: 1px solid #888 !important;
+  transition: background-color 0.2s ease, color 0.2s ease !important;
+  font-weight: 500 !important;
+  cursor: pointer !important;
+}
+
+.custom-button,
+.custom-button-delete {
+  margin: 4px 10px !important;
+  padding: 6px 14px !important;
+  border-radius: 6px !important;
+  background-color: #eee !important;
+  color: #000 !important;
+  border: 1px solid #888 !important;
+  font-weight: 500 !important;
+  cursor: pointer !important;
+  transition: background-color 0.2s ease, color 0.2s ease, transform 0.2s ease !important;
+}
+
+.custom-button:hover {
+  background-color: #ccc !important;
+  transform: scale(1.05) !important;
+}
+
+.custom-button-delete {
+  color: #ff7f7f !important;
+}
+
+.custom-button-delete:hover {
+  background-color: #ffdddd !important;
+  color: #b30000 !important;
+  border-color: #b30000 !important;
+  transform: scale(1.05) !important;
+}
+
+/* Hover state */
+.graph-radio-group label:hover {
+  background-color: #ccc;
+}
+
+/* Selected state */
+.graph-radio-group input[type="radio"]:checked + span {
+  background-color: #444 !important;
+  color: white !important;
+  border-radius: 6px;
+  padding: 6px 14px;
+  font-weight: 600;
+}

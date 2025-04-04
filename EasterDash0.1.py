@@ -22,7 +22,10 @@ FLASK_SECRET_KEY = os.environ.get("FLASK_SECRET_KEY", "super-secret-key")
 
 
 def is_admin_user():
-    return session.get('profile', {}).get('email') == os.getenv("ADMIN_EMAIL")
+    allowed_admins = os.getenv("ADMIN_EMAILS", "").split(",")
+    user_email = session.get('profile', {}).get('email')
+    return user_email in [email.strip().lower() for email in allowed_admins]
+
 
 
 oauth = OAuth()

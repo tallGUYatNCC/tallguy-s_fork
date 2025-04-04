@@ -79,6 +79,7 @@ def render_layout_with_cookie():
     return html.Div([
         dcc.Location(id="url", refresh=False),
         dcc.Store(id="submission-store", data="true" if submitted_cookie == "true" else "false"),
+        dcc.Store(id="loading-flag", data=False),
         dcc.Store(id="clear-cookie", data=False),
         dcc.Store(id="chart-request", data="local"),
         dcc.Store(id="is-admin", data=False),  # default False, will be updated later
@@ -218,13 +219,6 @@ def show_admin_if_allowed(_):
 
 def post_submit():
     return html.Div([
-        html.Div(
-            dcc.Loading(
-                id="loading-chart",
-                type="circle",  # or "dot", "default"
-                children=html.Div(id="chart-output")
-            )
-        ),
         html.Br(),
         html.Div(id="select-chart-toggle", children=
             dcc.RadioItems(
@@ -272,10 +266,18 @@ def delete_csv(n_clicks):
 
 @app.callback(
     Output('chart-output', 'children'),
-    Input('chart-request', 'data')
+    Output('loading-flag', 'data'),  # Reset loading flag after done
+    Input('chart-request', 'data'),
+    State('loading-flag', 'data')
 )
-def update_chart_view(chart_type):
-    return get_chart_layout(chart_type)
+def update_chart_view(chart_type, is_loading):
+    if is_loading:
+        # Show spinner while loading
+        return html.Div("Loading...", style={'textAlign': 'center', 'fontStyle': 'italic'}), False
+
+    # When not loading, return actual chart
+    return get_chart_layout(chart_type), False
+
 
 
 
@@ -283,17 +285,19 @@ def update_chart_view(chart_type):
     Output('chart-request', 'data', allow_duplicate=True),
     Output('submission-store', 'data'),
     Output('form-error', 'children'),
+    Output('loading-flag', 'data'),  # New output to trigger loading
     Input('submit-button', 'n_clicks'),
-    State('inpu','value'),
+    State('inpu', 'value'),
     State('age-slider', 'value'),
-    State('dropdown','value'),
-    State('christian-status','value'),
-    State('faith-decicion','value'),
-    State('how-they-found-us','value'),
+    State('dropdown', 'value'),
+    State('christian-status', 'value'),
+    State('faith-decicion', 'value'),
+    State('how-they-found-us', 'value'),
     prevent_initial_call=True
 )
 def form_submission(n_clicks, inpu, age_val, dropdown, christian, faith, howtheyfoundus):
     print("Form callback triggered!", n_clicks, inpu, age_val, dropdown, christian, faith, howtheyfoundus)
+
     if n_clicks > 0:
         request._set_cookie = True
         age_category = bin_age(age_val)
@@ -307,17 +311,22 @@ def form_submission(n_clicks, inpu, age_val, dropdown, christian, faith, howthey
 
         missing = [field for field, value in required_fields.items() if not str(value).strip()]
         if missing:
-            return no_update, False, f"⚠️ Please fill out: {', '.join(missing)}."
+            return no_update, False, f"⚠️ Please fill out: {', '.join(missing)}.", False
 
         new_row = pd.DataFrame(
             [[inpu, age_category, dropdown, christian, faith, howtheyfoundus]],
             columns=columns
         )
+
         global df
         df = pd.concat([df, new_row], ignore_index=True)
         df.to_csv(CSV_PATH, index=False)
-        return "local", "true", ""
-    return no_update, False, ""
+
+        # Set loading to true after successful submission
+        return "local", "true", "", True
+
+    return no_update, False, "", False
+
 
 
 def bin_age(age):
@@ -333,11 +342,13 @@ def bin_age(age):
 
 @app.callback(
     Output("chart-request", "data", allow_duplicate=True),
+    Output("loading-flag", "data"),
     Input("chart-toggle", "value"),
     prevent_initial_call=True
 )
 def handle_chart_toggle(toggle_value):
-    return toggle_value
+    return toggle_value, True
+
 
 @app.callback(
     Output("chart-request", "data", allow_duplicate=True),

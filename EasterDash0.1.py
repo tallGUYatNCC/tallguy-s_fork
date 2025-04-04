@@ -218,7 +218,13 @@ def show_admin_if_allowed(_):
 
 def post_submit():
     return html.Div([
-        html.Div(id="chart-output"),
+        html.Div(
+            dcc.Loading(
+                id="loading-chart",
+                type="circle",  # or "dot", "default"
+                children=html.Div(id="chart-output")
+            )
+        ),
         html.Br(),
         html.Div(id="select-chart-toggle", children=
             dcc.RadioItems(
@@ -236,6 +242,7 @@ def post_submit():
         ),
         html.Div(id="admin-panel-wrapper-container")
     ])
+
 
 @app.callback(
     Output('delete-status', 'children'),

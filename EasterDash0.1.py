@@ -219,6 +219,13 @@ def show_admin_if_allowed(_):
 
 def post_submit():
     return html.Div([
+        html.Div(
+            dcc.Loading(
+                id="loading-chart",
+                type="circle",  # or "dot", "default"
+                children=html.Div(id="chart-output")  # ← IMPORTANT
+            )
+        ),
         html.Br(),
         html.Div(id="select-chart-toggle", children=
             dcc.RadioItems(
@@ -264,19 +271,21 @@ def delete_csv(n_clicks):
     raise PreventUpdate
 
 
+import time
+
 @app.callback(
     Output('chart-output', 'children'),
-    Output('loading-flag', 'data'),  # Reset loading flag after done
+    Output('loading-flag', 'data', allow_duplicate=True),
     Input('chart-request', 'data'),
-    State('loading-flag', 'data')
+    prevent_initial_call=True
 )
-def update_chart_view(chart_type, is_loading):
-    if is_loading:
-        # Show spinner while loading
-        return html.Div("Loading...", style={'textAlign': 'center', 'fontStyle': 'italic'}), False
+def update_chart_view(chart_type):
+    # Optional delay to simulate loading — can be removed
+    time.sleep(0.5)
 
-    # When not loading, return actual chart
     return get_chart_layout(chart_type), False
+
+
 
 
 
@@ -285,7 +294,7 @@ def update_chart_view(chart_type, is_loading):
     Output('chart-request', 'data', allow_duplicate=True),
     Output('submission-store', 'data'),
     Output('form-error', 'children'),
-    Output('loading-flag', 'data'),  # New output to trigger loading
+    Output('loading-flag', 'data', allow_duplicate=True),  # New output to trigger loading
     Input('submit-button', 'n_clicks'),
     State('inpu', 'value'),
     State('age-slider', 'value'),
@@ -342,7 +351,7 @@ def bin_age(age):
 
 @app.callback(
     Output("chart-request", "data", allow_duplicate=True),
-    Output("loading-flag", "data"),
+    Output("loading-flag", "data", allow_duplicate=True),
     Input("chart-toggle", "value"),
     prevent_initial_call=True
 )
@@ -352,12 +361,13 @@ def handle_chart_toggle(toggle_value):
 
 @app.callback(
     Output("chart-request", "data", allow_duplicate=True),
+    Output("loading-flag", "data", allow_duplicate=True),
     Input("data_button", "n_clicks"),
     prevent_initial_call=True
 )
 def handle_data_click(n_clicks):
     if n_clicks:
-        return "data"
+        return "data", True
     raise PreventUpdate
 
 

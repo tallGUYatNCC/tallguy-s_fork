@@ -1,5 +1,5 @@
 import dash
-from dash import Dash, dcc, html, Input, Output, State, ctx, dash_table, no_update, MATCH, callback_context
+from dash import Dash, dcc, html, Input, Output, State, ctx, dash_table, no_update, MATCH, callback_context, ALL
 from dash.exceptions import PreventUpdate
 from dash import ClientsideFunction
 import plotly.express as px
@@ -19,6 +19,17 @@ AUTH0_DOMAIN = os.environ.get("AUTH0_DOMAIN", "your-auth0-domain.auth0.com")
 ADMIN_EMAIL = os.environ.get("ADMIN_EMAIL", "admin@example.com")
 FLASK_SECRET_KEY = os.environ.get("FLASK_SECRET_KEY", "super-secret-key")
 
+form_stlye = {''}
+button_style = {
+    'width': '100%',
+    'padding': '10px',
+    'fontSize': '16px',
+    'border': 'none',
+    'borderRadius': '5px',
+    'backgroundColor': '#007bff',
+    'color': '#fff',
+    'textAlign': 'left'
+}
 
 
 def is_admin_user():
@@ -89,12 +100,18 @@ def render_layout_with_cookie():
         html.Div(id="delete-status"),
         html.Div(id="form-error"),
         html.Div(id="page-container", style={
-            'maxWidth': '600px',
+            'maxWidth': '900px',
             'margin': '0 auto',
-            'padding': '2rem',
+            'padding': '1rem',
             'textAlign': 'left'
         })
-    ], style={'fontFamily': 'Arial, sans-serif'})
+    ], style={
+    'fontFamily': 'Inter, sans-serif',
+    'backgroundColor': '#f9f9f9',
+    'minHeight': '100vh',
+    'padding': '1rem',
+    'color': '#333'
+})
 
 
 
@@ -248,7 +265,7 @@ def pre_submit():
         ], style={'marginBottom': '2rem'}),
 
         html.Div([
-            html.Button('Submit', id='submit-button', n_clicks=0)
+            html.Button('Submit', id='submit-button', n_clicks=0, style = button_style)
         ], style={'textAlign': 'center', 'marginBottom': '2rem'})
     ])
 
@@ -281,31 +298,68 @@ def show_admin_if_allowed(_):
 
 def post_submit():
     return html.Div([
+        html.Div([
+            html.Div("☰", id="hamburger", n_clicks=0, style={
+                'fontSize': '24px',
+                'cursor': 'pointer',
+                'padding': '10px',
+                'display': 'inline-block',
+                'userSelect': 'none',
+            }),
+            html.Div(id="nav-menu", children=[
+                html.Button("Locals", id={"type": "chart-btn", "value": "local"}, n_clicks=0),
+                html.Button("Where?", id={"type": "chart-btn", "value": "state_map"}, n_clicks=0),
+                html.Button("Ages", id={"type": "chart-btn", "value": "age"}, n_clicks=0),
+                html.Button("Christ Followers", id={"type": "chart-btn", "value": "christians"}, n_clicks=0),
+                html.Button("Faith Decicions", id={"type": "chart-btn", "value": "faithdecicion"}, n_clicks=0),
+            ], style={
+            'display': 'none',
+            'flexDirection': 'row',           # 👈 Horizontal layout
+            'flexWrap': 'wrap',               # 👈 Optional: wrap if too long
+            'gap': '10px',
+            'backgroundColor': '#fff',
+            'padding': '1rem',
+            'border': '1px solid #ddd',
+            'boxShadow': '0 2px 5px rgba(0,0,0,0.1)',
+            'position': 'absolute',
+            'top': '10px',
+            'left': '50px',                   # 👈 Show to the right of hamburger
+            'zIndex': 1000,
+            'maxWidth': '90vw',               # 👈 Responsive for mobile
+            'borderRadius': '6px'
+        })
+        ], style={'position': 'relative'}),
+        
         html.Div(
             dcc.Loading(
                 id="loading-chart",
-                type="circle",  # or "dot", "default"
-                children=html.Div(id="chart-output")  # ← IMPORTANT
+                type="circle",
+                children=html.Div(id="chart-output")
             )
-        ),
-        html.Br(),
-        html.Div(id="select-chart-toggle", children=
-            dcc.RadioItems(
-                id='chart-toggle',
-                options=[
-                    {'label': 'Locals', 'value': 'local'},
-                    {'label': 'Where?', 'value': 'state_map'},
-                    {'label': 'Ages', 'value': 'age'},
-                    {'label': 'Christ Followers', 'value': 'christians'},
-                    {'label': 'Faith Decicions', 'value': 'faithdecicion'},
-                ],
-                value='local',
-                inline=True,
-                className="graph-radio-group"),
-            style={'textAlign': 'center', 'marginBottom': '2rem', 'marginTop':'40px'}
         ),
         html.Div(id="admin-panel-wrapper-container")
     ])
+
+
+# Hamburger Menu Callback:
+@app.callback(
+    Output("nav-menu", "style"),
+    Input("hamburger", "n_clicks"),
+    State("nav-menu", "style"),
+    prevent_initial_call=True
+)
+def toggle_nav(n_clicks, current_style):
+    if current_style and current_style.get("display") == "none":
+        new_style = current_style.copy()
+        new_style["display"] = "flex"
+        return new_style
+    else:
+        new_style = current_style.copy()
+        new_style["display"] = "none"
+        return new_style
+
+
+
 
 delete_triggered = False  # Delete safeguard
 @app.callback(
@@ -421,6 +475,7 @@ def form_submission(n_clicks, inpu, age_val, christian, faith, howtheyfoundus, c
     return no_update, False, "", False
 
 
+# Simple function to take any given age and bin it so we can created age groups.
 
 def bin_age(age):
     if age < 18:
@@ -436,11 +491,15 @@ def bin_age(age):
 @app.callback(
     Output("chart-request", "data", allow_duplicate=True),
     Output("loading-flag", "data", allow_duplicate=True),
-    Input("chart-toggle", "value"),
+    Input({"type": "chart-btn", "value": ALL}, "n_clicks"),
     prevent_initial_call=True
 )
-def handle_chart_toggle(toggle_value):
-    return toggle_value, True
+def nav_chart_select(n_clicks_list):
+    triggered = ctx.triggered_id
+    if not triggered:
+        raise PreventUpdate
+    return triggered["value"], True
+
 
 
 @app.callback(
@@ -456,7 +515,7 @@ def handle_data_click(n_clicks):
 
 
 
-    
+# Choose which chart we send to Output
 
 def get_chart_layout(chart_type):
     if chart_type == "local":
@@ -533,7 +592,16 @@ def generate_us_map():
         geo=dict(lakecolor='rgb(255, 255, 255)')
     )
 
-    return dcc.Graph(figure=fig)
+    return html.Div(
+    dcc.Graph(figure=fig),
+    style={
+        'backgroundColor': 'white',
+        'padding': '20px',
+        'borderRadius': '8px',
+        'boxShadow': '0 2px 8px rgba(0, 0, 0, 0.05)',
+        'border': '2px solid black'
+    }
+    )
 
 
 
@@ -555,7 +623,13 @@ def local_counter():
         hole=0.1
     )
 
-    return dcc.Graph(figure=style_pie_chart(fig, "Local vs Visitor"), style={'width': '100%'})
+    return dcc.Graph(figure=style_pie_chart(fig, "Local vs Visitor"), style={
+    'backgroundColor': 'white',
+    'padding': '20px',
+    'borderRadius': '8px',
+    'boxShadow': '0 2px 8px rgba(0, 0, 0, 0.05)',
+    'border': '2px solid black'
+})
 
 
 
@@ -598,7 +672,16 @@ def generate_pie_chart_from_column(column_name, title):
         height=400
     )
     
-    return dcc.Graph(figure=fig)
+    return html.Div(
+    dcc.Graph(figure=fig),
+    style={
+        'backgroundColor': 'white',
+        'padding': '20px',
+        'borderRadius': '8px',
+        'boxShadow': '0 2px 8px rgba(0, 0, 0, 0.05)',
+        'border': '2px solid black'
+    }
+)
 
 def generate_bar_chart_from_column(column_name, title):
     global df
@@ -785,8 +868,9 @@ def index():
 
 @server.before_request
 def ensure_logged_out():
-    if '/?admin=true' in request.url and 'profile' not in session:
-        return redirect('/logout')
+    if request.path == '/' and 'admin=true' in request.query_string.decode() and 'profile' not in session:
+        return redirect('/login?next=/?admin=true')
+
 
 
 if __name__ == '__main__':

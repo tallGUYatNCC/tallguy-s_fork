@@ -769,7 +769,7 @@ def logout():
 def index():
     return "App is running"
 
-@app.before_request
+@server.before_request
 def ensure_logged_out():
     if '/?admin=true' in request.url and 'profile' not in session:
         return redirect('/logout')

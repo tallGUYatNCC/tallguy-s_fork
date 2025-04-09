@@ -27,7 +27,7 @@ def is_admin_user():
     return user_email in [email.strip().lower() for email in allowed_admins]
 
 
-
+#O Auth integration
 oauth = OAuth()
 auth0 = oauth.register(
     'auth0',
@@ -42,7 +42,7 @@ auth0 = oauth.register(
     server_metadata_url=f"https://{os.getenv('AUTH0_DOMAIN')}/.well-known/openid-configuration"
 )
 
-
+# Redirects if Oauth
 def requires_auth(f):
     @wraps(f)
     def decorated(*args, **kwargs):
@@ -51,11 +51,8 @@ def requires_auth(f):
         return f(*args, **kwargs)
     return decorated
 
-
-delete_triggered = False  # simple in-memory guard
-
 CSV_PATH = os.path.join(os.path.dirname(__file__), "responses.csv")
-columns = ['Name', 'Age Range', 'Age', 'Local', 'Christ Follower', 'Faith Decicion', 'How you found us?']
+columns = ['Name', 'Age Range', 'Age', 'Local', 'Country', 'State', 'Christ Follower', 'Faith Decicion', 'How you found us?']
 
 df = pd.DataFrame()
 current_chart = "local"
@@ -101,7 +98,7 @@ def render_layout_with_cookie():
 
 
 
-
+#Callback for the admin URL - Adds login button if so.
 @app.callback(
     Output("auth-buttons", "children"),
     Input("url", "search")
@@ -120,7 +117,7 @@ def show_auth_buttons(search):
 
 
 
-
+# Check if user is admin
 @app.callback(
     Output('is-admin', 'data'),
     Input('url', 'search')
@@ -130,7 +127,58 @@ def extract_admin_flag(search):
     return query.get('admin', ['false'])[0].lower() == 'true'
 
 
+#Country Integration:
+def get_country_list():
+    try:
+        response = requests.get("https://restcountries.com/v3.1/all")
+        countries = sorted([c['name']['common'] for c in response.json()])
+        return countries
+    except Exception as e:
+        print("Failed to fetch countries:", str(e))
+        return ['United States', 'Canada', 'United Kingdom', 'Other']  # Fallback
+    
+import requests
 
+#Callback for state dropdown
+@app.callback(
+    Output('state-dropdown-container', 'children'),
+    Input('country-dropdown', 'value')
+)
+def show_state_dropdown(selected_country):
+    if not selected_country:
+        raise PreventUpdate
+
+    try:
+        res = requests.post(
+            "https://countriesnow.space/api/v0.1/countries/states",
+            json={"country": selected_country}
+        )
+        data = res.json()
+        print("CountriesNow API Response:", data)
+
+        if not data or data.get("error", True) or "data" not in data:
+            print("❌ Invalid or error response")
+            return html.Div("Could not load states", style={'color': 'red'})
+
+        states = data["data"].get("states", [])
+        if selected_country == "United States":
+            states.append({"name": "District of Columbia"})  # 👈 Add DC manually
+
+        if not states:
+            return ""
+
+        return html.Div([
+            html.Label("State/Province:", style={'fontWeight': 'bold'}),
+            dcc.Dropdown(
+                id='state-dropdown',
+                options=[{'label': s['name'], 'value': s['name']} for s in states],
+                placeholder='Select a state...'
+            )
+        ], style={'marginTop': '1rem'})
+
+    except Exception as e:
+        print("❌ API request failed:", str(e))
+        return html.Div("Could not load states", style={'color': 'red'})
 
 @app.callback(
     Output("page-container", "children"),
@@ -145,7 +193,7 @@ def render_layout(submitted):
 
 
 
-# Form + delete view
+# This is the form before a user submits it
 def pre_submit():
     return html.Div([
         html.Div([
@@ -154,9 +202,15 @@ def pre_submit():
         ], style={'marginBottom': '1rem'}),
 
         html.Div([
-            html.Label("Are you from DC?:",style={'fontWeight': 'bold'}),
-            dcc.Dropdown(id='dropdown', options=[{'label': x, 'value': x} for x in ['Yes', 'No']], value='')
-        ], style={'marginBottom': '1rem'}),
+            html.Label("Where are you from?", style={'fontWeight': 'bold'}),
+            dcc.Dropdown(
+                id='country-dropdown',
+                options=[{'label': c, 'value': c} for c in get_country_list()],
+                value='',
+                style={'marginBottom': '1rem'}
+            ),
+            html.Div(id='state-dropdown-container')
+        ], style={'marginBottom': '2rem'}),
 
         html.Div([
             html.Label("Are you a christian?:",style={'fontWeight': 'bold'}),
@@ -252,7 +306,7 @@ def post_submit():
         html.Div(id="admin-panel-wrapper-container")
     ])
 
-
+delete_triggered = False  # Delete safeguard
 @app.callback(
     Output('delete-status', 'children'),
     Input('delete-button', 'n_clicks'),
@@ -300,25 +354,31 @@ def update_chart_view(chart_type):
 
 
 
+# Check if Local
+def checkLocal(state_):
+    return state_=="District of Columbia"
 
 
+# This is our main callback for when the form is submitted
 
 @app.callback(
     Output('chart-request', 'data', allow_duplicate=True),
     Output('submission-store', 'data', allow_duplicate=True),
     Output('form-error', 'children'),
-    Output('loading-flag', 'data', allow_duplicate=True),  # New output to trigger loading
+    Output('loading-flag', 'data', allow_duplicate=True), 
     Input('submit-button', 'n_clicks'),
     State('inpu', 'value'),
     State('age-slider', 'value'),
-    State('dropdown', 'value'),
     State('christian-status', 'value'),
     State('faith-decicion', 'value'),
     State('how-they-found-us', 'value'),
+    State('country-dropdown', 'value'),
+    State('state-dropdown', 'value'),
     prevent_initial_call=True
 )
-def form_submission(n_clicks, inpu, age_val, dropdown, christian, faith, howtheyfoundus):
-    print("Form callback triggered!", n_clicks, inpu, age_val, dropdown, christian, faith, howtheyfoundus)
+def form_submission(n_clicks, inpu, age_val, christian, faith, howtheyfoundus, country_, state_):
+    print("Form callback triggered!", n_clicks, inpu, age_val, christian, faith, howtheyfoundus)
+    local_value = checkLocal(state_)
 
     if n_clicks > 0:
         request._set_cookie = True
@@ -326,7 +386,6 @@ def form_submission(n_clicks, inpu, age_val, dropdown, christian, faith, howthey
         required_fields = {
             "Name": inpu,
             "Age Range": age_val,
-            "Local": dropdown,
             "Christ Follower": christian,
             "Faith Decicion": faith
         }
@@ -336,9 +395,20 @@ def form_submission(n_clicks, inpu, age_val, dropdown, christian, faith, howthey
             return no_update, False, f"⚠️ Please fill out: {', '.join(missing)}.", False
 
         new_row = pd.DataFrame(
-            [[inpu, age_category, age_val, dropdown, christian, faith, howtheyfoundus]],
+            [[
+                inpu,
+                age_category,
+                age_val,
+                local_value,
+                country_,
+                state_,
+                christian,
+                faith,
+                howtheyfoundus
+            ]],
             columns=columns
         )
+
 
         global df
         df = pd.concat([df, new_row], ignore_index=True)

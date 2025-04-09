@@ -456,18 +456,35 @@ def post_submit():
         [
             html.Div(
                 [
+                    # Centering the hamburger icon
                     html.Div(
-                        "☰",
+                        "Select Chart",
                         id="hamburger",
                         n_clicks=0,
-                        style={
-                            "fontSize": "24px",
-                            "cursor": "pointer",
-                            "padding": "10px",
-                            "display": "inline-block",
-                            "userSelect": "none",
+                        style = {
+                        "fontSize": "12px",  # Adjust font size as needed
+                        "cursor": "pointer",
+                        "padding": "10px",  # Padding for the button
+                        "display": "flex",  # Use flexbox for centering
+                        "justifyContent": "center",  # Horizontally center the text
+                        "alignItems": "center",  # Vertically center the text
+                        "userSelect": "none",
+                        "backgroundColor": "#007bff",  # Blue color
+                        "borderRadius": "50%",  # Circular shape
+                        "boxShadow": "0 4px 6px rgba(0, 0, 0, 0.2)",  # Depth effect
+                        "textAlign": "center",  # Ensure text is aligned
+                        "width": "60px",  # Keep it circular
+                        "height": "60px",  # Same height to maintain circle
+                        "position": "absolute",  # Position it at a fixed spot
+                        "top": "20px",  # Adjust top for centering
+                        "left": "50%",  # Center horizontally
+                        "transform": "translateX(-50%)",  # Fine-tune centering
+                        "transition": "all 0.3s ease-in-out",  # Smooth transition
+                        "zIndex": 1001,  # Ensure it stays on top of other elements
                         },
                     ),
+                    
+                    # Centered navigation menu (hidden initially)
                     html.Div(
                         id="nav-menu",
                         children=[
@@ -475,59 +492,59 @@ def post_submit():
                                 "Locals",
                                 id={"type": "chart-btn", "value": "local"},
                                 n_clicks=0,
+                                style=button_style,
                             ),
                             html.Button(
                                 "Where?",
                                 id={"type": "chart-btn", "value": "state_map"},
                                 n_clicks=0,
+                                style=button_style,
                             ),
                             html.Button(
                                 "Ages",
                                 id={"type": "chart-btn", "value": "age"},
                                 n_clicks=0,
+                                style=button_style,
                             ),
                             html.Button(
                                 "Christ Followers",
-                                id={
-                                    "type": "chart-btn",
-                                    "value": "christians",
-                                },
+                                id={"type": "chart-btn", "value": "christians"},
                                 n_clicks=0,
+                                style=button_style,
                             ),
                             html.Button(
-                                "Faith Decicions",
-                                id={
-                                    "type": "chart-btn",
-                                    "value": "faithdecicion",
-                                },
+                                "Faith Decisions",
+                                id={"type": "chart-btn", "value": "faithdecicion"},
                                 n_clicks=0,
+                                style=button_style,
                             ),
                         ],
                         style={
-                            "display": "none",
-                            "flexDirection": "row",  # 👈 Horizontal layout
-                            "flexWrap": "wrap",  # 👈 Optional: wrap if too long
-                            "gap": "10px",
-                            "backgroundColor": "#fff",
-                            "padding": "1rem",
-                            "border": "1px solid #ddd",
-                            "boxShadow": "0 2px 5px rgba(0,0,0,0.1)",
-                            "position": "absolute",
-                            "top": "10px",
-                            "left": "50px",  # 👈 Show to the right of hamburger
-                            "zIndex": 1000,
-                            "maxWidth": "90vw",  # 👈 Responsive for mobile
-                            "borderRadius": "6px",
+                            "display": "none",  # Initially hidden
+                            "flexDirection": "column",  # Stack items vertically
+                            "gap": "15px",  # Space between the buttons
+                            "backgroundColor": "#fff",  # Clean background
+                            "padding": "1.5rem",  # Padding around the menu
+                            "border": "1px solid #ddd",  # Light border around the menu
+                            "boxShadow": "0 4px 6px rgba(0, 0, 0, 0.1)",  # Subtle shadow
+                            "position": "absolute",  # Fixed position relative to the hamburger
+                            "top": "95px",  # Adjust vertical position of the menu
+                            "left": "50%",  # Center it horizontally
+                            "transform": "translateX(-50%)",  # Fine-tune centering
+                            "zIndex": 1000,  # Ensure the menu is above the chart
+                            "maxWidth": "70vw",  # Reduce max width to avoid excessive size
+                            "borderRadius": "8px",  # Rounded corners
+                            "transition": "all 0.3s ease-in-out",  # Smooth transition for visibility
                         },
                     ),
                 ],
-                style={"position": "relative"},
+                style={"position": "absolute"},
             ),
             html.Div(
                 dcc.Loading(
                     id="loading-chart",
                     type="circle",
-                    children=html.Div(id="chart-output"),
+                    children=html.Div(id="chart-output",style={'marginTop':'40px'}),
                 )
             ),
             html.Div(id="admin-panel-wrapper-container"),
@@ -543,14 +560,17 @@ def post_submit():
     prevent_initial_call=True,
 )
 def toggle_nav(n_clicks, current_style):
-    if current_style and current_style.get("display") == "none":
+    if n_clicks:
+        # Toggle display based on the current style of the menu
         new_style = current_style.copy()
-        new_style["display"] = "flex"
+        if new_style.get("display") == "none":
+            new_style["display"] = "flex"  # Show the menu
+        else:
+            new_style["display"] = "none"  # Hide the menu
         return new_style
-    else:
-        new_style = current_style.copy()
-        new_style["display"] = "none"
-        return new_style
+    return no_update
+
+
 
 
 delete_triggered = False  # Delete safeguard

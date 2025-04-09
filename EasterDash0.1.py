@@ -481,7 +481,8 @@ def get_chart_layout(chart_type):
         return html.Div("Unknown chart type.")
 
 
-def generate_us_map(dataframe):
+def generate_us_map():
+    dataframe = df
     # Count responses per state
     state_counts = dataframe['State'].value_counts().reset_index()
     state_counts.columns = ['State', 'Count']

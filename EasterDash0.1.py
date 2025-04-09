@@ -67,7 +67,6 @@ server = app.server
 oauth.init_app(server)
 app.server.secret_key = os.getenv("FLASK_SECRET_KEY", "super-secret-dev-key")
 app.title = "Pydash Dashboard"
-app.config['SESSION_PERMANENT'] = False
 prevent_initial_call='initial_duplicate'
 app.prevent_initial_callbacks = False
 app.config.suppress_callback_exceptions = True

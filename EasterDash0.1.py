@@ -482,16 +482,25 @@ def get_chart_layout(chart_type):
 
 
 def generate_us_map():
+    global df
     dataframe = df
+
+    # Basic validation: check if 'State' column exists and has values
+    if dataframe.empty or 'State' not in dataframe.columns or dataframe['State'].dropna().empty:
+        return html.Div("No state data available to display on map.", style={'color': 'gray', 'textAlign': 'center'})
+
+    # Strip and normalize state names
+    dataframe['State'] = dataframe['State'].astype(str).str.strip().str.title()
+
     # Count responses per state
     state_counts = dataframe['State'].value_counts().reset_index()
     state_counts.columns = ['State', 'Count']
 
-    # You can use a state abbrev map to match Plotly's expectations
+    # State name to abbreviation mapping
     state_abbrev = {
         'Alabama': 'AL', 'Alaska': 'AK', 'Arizona': 'AZ', 'Arkansas': 'AR',
         'California': 'CA', 'Colorado': 'CO', 'Connecticut': 'CT', 'Delaware': 'DE',
-        'District of Columbia': 'DC', 'Florida': 'FL', 'Georgia': 'GA',
+        'District Of Columbia': 'DC', 'Florida': 'FL', 'Georgia': 'GA',
         'Hawaii': 'HI', 'Idaho': 'ID', 'Illinois': 'IL', 'Indiana': 'IN',
         'Iowa': 'IA', 'Kansas': 'KS', 'Kentucky': 'KY', 'Louisiana': 'LA',
         'Maine': 'ME', 'Maryland': 'MD', 'Massachusetts': 'MA', 'Michigan': 'MI',
@@ -506,6 +515,9 @@ def generate_us_map():
     }
 
     state_counts['Code'] = state_counts['State'].map(state_abbrev)
+
+    if state_counts['Code'].isnull().all():
+        return html.Div("Could not match any state names to abbreviations.", style={'color': 'red', 'textAlign': 'center'})
 
     fig = px.choropleth(
         state_counts,
@@ -522,6 +534,7 @@ def generate_us_map():
     )
 
     return dcc.Graph(figure=fig)
+
 
 
 

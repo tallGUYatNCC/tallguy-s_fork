@@ -293,7 +293,8 @@ def post_submit():
             dcc.RadioItems(
                 id='chart-toggle',
                 options=[
-                    {'label': 'Geographic', 'value': 'local'},
+                    {'label': 'Locals', 'value': 'local'},
+                    {'label': 'Where?', 'value': 'state_map'},
                     {'label': 'Ages', 'value': 'age'},
                     {'label': 'Christ Followers', 'value': 'christians'},
                     {'label': 'Faith Decicions', 'value': 'faithdecicion'},
@@ -460,6 +461,8 @@ def handle_data_click(n_clicks):
 def get_chart_layout(chart_type):
     if chart_type == "local":
         return local_counter()
+    if chart_type == "state_map":
+        return generate_us_map()
     elif chart_type == "age":
         return html.Div([generate_pie_chart_from_column("Age Range", "Age Distribution"),generate_bar_chart_from_column("Age","Ages in attendance")])
     elif chart_type == "christians":
@@ -478,10 +481,52 @@ def get_chart_layout(chart_type):
         return html.Div("Unknown chart type.")
 
 
+def generate_us_map(dataframe):
+    # Count responses per state
+    state_counts = dataframe['State'].value_counts().reset_index()
+    state_counts.columns = ['State', 'Count']
+
+    # You can use a state abbrev map to match Plotly's expectations
+    state_abbrev = {
+        'Alabama': 'AL', 'Alaska': 'AK', 'Arizona': 'AZ', 'Arkansas': 'AR',
+        'California': 'CA', 'Colorado': 'CO', 'Connecticut': 'CT', 'Delaware': 'DE',
+        'District of Columbia': 'DC', 'Florida': 'FL', 'Georgia': 'GA',
+        'Hawaii': 'HI', 'Idaho': 'ID', 'Illinois': 'IL', 'Indiana': 'IN',
+        'Iowa': 'IA', 'Kansas': 'KS', 'Kentucky': 'KY', 'Louisiana': 'LA',
+        'Maine': 'ME', 'Maryland': 'MD', 'Massachusetts': 'MA', 'Michigan': 'MI',
+        'Minnesota': 'MN', 'Mississippi': 'MS', 'Missouri': 'MO', 'Montana': 'MT',
+        'Nebraska': 'NE', 'Nevada': 'NV', 'New Hampshire': 'NH', 'New Jersey': 'NJ',
+        'New Mexico': 'NM', 'New York': 'NY', 'North Carolina': 'NC', 'North Dakota': 'ND',
+        'Ohio': 'OH', 'Oklahoma': 'OK', 'Oregon': 'OR', 'Pennsylvania': 'PA',
+        'Rhode Island': 'RI', 'South Carolina': 'SC', 'South Dakota': 'SD',
+        'Tennessee': 'TN', 'Texas': 'TX', 'Utah': 'UT', 'Vermont': 'VT',
+        'Virginia': 'VA', 'Washington': 'WA', 'West Virginia': 'WV',
+        'Wisconsin': 'WI', 'Wyoming': 'WY'
+    }
+
+    state_counts['Code'] = state_counts['State'].map(state_abbrev)
+
+    fig = px.choropleth(
+        state_counts,
+        locations='Code',
+        locationmode='USA-states',
+        color='Count',
+        scope="usa",
+        color_continuous_scale='Blues'
+    )
+
+    fig.update_layout(
+        title_text="Respondents by State",
+        geo=dict(lakecolor='rgb(255, 255, 255)')
+    )
+
+    return dcc.Graph(figure=fig)
+
+
 
 
 def local_counter():
-    label_map = {'Yes': 'Local', 'No': 'Visitor'}
+    label_map = {True: 'Local', False: 'Visitor'}
     renamed_series = df["Local"].map(label_map)
 
     count_series = renamed_series.value_counts()
@@ -497,6 +542,7 @@ def local_counter():
     )
 
     return dcc.Graph(figure=style_pie_chart(fig, "Local vs Visitor"), style={'width': '100%'})
+
 
 
 def generate_pie_chart_from_column(column_name, title):

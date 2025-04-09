@@ -67,6 +67,7 @@ server = app.server
 oauth.init_app(server)
 app.server.secret_key = os.getenv("FLASK_SECRET_KEY", "super-secret-dev-key")
 app.title = "Pydash Dashboard"
+app.config['SESSION_PERMANENT'] = False
 prevent_initial_call='initial_duplicate'
 app.prevent_initial_callbacks = False
 app.config.suppress_callback_exceptions = True
@@ -711,15 +712,22 @@ def callback():
 @server.route('/logout')
 def logout():
     session.clear()
-    return redirect(
+    resp = redirect(
         f"https://{os.getenv('AUTH0_DOMAIN')}/v2/logout?" +
         f"returnTo={url_for('index', _external=True, _scheme='https')}&client_id={os.getenv('AUTH0_CLIENT_ID')}"
-)
+    )
+    resp.set_cookie("submitted", "", expires=0, path="/")
+    return resp
+
 
 @server.route('/')
 def index():
     return "App is running"
 
+@app.before_request
+def ensure_logged_out():
+    if '/?admin=true' in request.url and 'profile' not in session:
+        return redirect('/logout')
 
 
 if __name__ == '__main__':

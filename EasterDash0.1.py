@@ -552,29 +552,16 @@ delete_triggered = False  # Delete safeguard
     Input("delete-button", "n_clicks"),
     prevent_initial_call=True,
 )
-def delete_csv(n_clicks):
-    global df
-    if os.path.exists(CSV_PATH):
-        os.remove(CSV_PATH)
-        df = pd.DataFrame(columns=columns)
-        request._clear_cookie = True
-        return "✅ responses.csv deleted. Refreshing..."
-    return "responses.csv does not exist."
-
-    # Hard stop if already triggered
-    if delete_triggered:
-        raise PreventUpdate
-
-    # Only proceed if user truly clicked
+def delete_sql_responses(n_clicks):
     if ctx.triggered_id == "delete-button" and n_clicks:
-        delete_triggered = True
-        if os.path.exists(CSV_PATH):
-            os.remove(CSV_PATH)
-            df = pd.DataFrame(columns=columns)
+        try:
+            with engine.connect() as conn:
+                conn.execute(text("DELETE FROM responses"))
             request._clear_cookie = True
-            return "responses.csv deleted successfully.", True
-        return "responses.csv does not exist.", False
-
+            return "✅ All responses deleted from the database."
+        except Exception as e:
+            print("Delete failed:", e)
+            return "❌ Failed to delete responses from the database."
     raise PreventUpdate
 
 
@@ -1046,8 +1033,13 @@ def dev_clear_cookie(n_clicks):
     prevent_initial_call=True,
 )
 def download_data(n_clicks):
-    if n_clicks > 0:
-        return dcc.send_data_frame(df.to_csv, "responses.csv", index=False)
+    try:
+        with engine.connect() as conn:
+            df_sql = pd.read_sql("SELECT * FROM responses", conn)
+        return dcc.send_data_frame(df_sql.to_csv, "responses.csv", index=False)
+    except Exception as e:
+        print("CSV download failed:", e)
+        raise PreventUpdate
 
 
 @app.server.after_request

@@ -4,3 +4,4 @@ plotly
 flask
 authlib
 python-dotenv
+sqlalchemy

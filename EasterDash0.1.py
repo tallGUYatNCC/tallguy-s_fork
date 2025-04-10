@@ -19,6 +19,7 @@ import plotly.express as px
 import pandas as pd
 import os
 from flask import request, make_response
+import mysql.connector
 
 # auth_setup.py (optional) or top of app.py
 import os
@@ -678,7 +679,7 @@ def form_submission(
         if missing:
             return (
                 no_update,
-                False,
+                no_update,
                 f"⚠️ Please fill out: {', '.join(missing)}.",
                 False,
             )

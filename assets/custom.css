@@ -1,20 +1,70 @@
-/* Target the span text part of radio buttons */
-.graph-radio-group input[type="radio"] {
-  display: none;
+/* Global Styles */
+body {
+  font-family: "Poppins", sans-serif;
+  background: #f7f7f7; /* Soft light gray background */
+  color: #333; /* Dark gray text */
+  margin: 0;
+  padding: 0;
 }
 
-.graph-radio-group label {
-  display: inline-block;
-  margin: 4px 10px;
-  padding: 6px 14px;
-  border-radius: 6px;
-  background-color: #eee;
-  color: #000;
-  border: 1px solid #888;
-  transition: background-color 0.2s ease, color 0.2s ease;
+h1,
+h2,
+h3,
+h4 {
+  font-family: "Roboto", sans-serif;
+  color: #222; /* Slightly darker gray for headers */
+}
+
+/* Label Styles */
+label {
+  font-weight: 600;
+  font-size: 14px;
+  color: #555;
+  margin-bottom: 8px; /* Space between label and input */
+  display: block; /* Ensures label appears above the input field */
+}
+
+/* Input, Select, Slider Styles */
+input[type="text"],
+select,
+.slider-container {
+  background-color: white;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+  border-radius: 8px;
+  border: 1px solid #ccc;
+  padding: 10px;
+  margin-bottom: 16px;
+  width: 100%;
+  font-size: 16px;
+  box-sizing: border-box; /* Ensures padding is included in the width */
+}
+
+/* Focus styles for input */
+input:focus,
+select:focus {
+  border-color: #007bff;
+  outline: none;
+}
+
+/* Submit Button */
+button {
+  width: 100%;
+  padding: 12px;
+  font-size: 16px;
+  border: none;
+  border-radius: 5px;
+  background-color: #007bff;
+  color: white;
   cursor: pointer;
+  margin-top: 20px;
+  box-sizing: border-box; /* Ensures padding is included in the width */
 }
 
+button:hover {
+  background-color: #0056b3;
+}
+
+/* Admin Panel Styles */
 #admin-stuff {
   background-color: #888 !important;
 }
@@ -23,53 +73,122 @@
   margin: 4px 10px !important;
   padding: 6px 14px !important;
   border-radius: 6px !important;
-  background-color: #eee !important;
-  color: #000 !important;
+  background-color: #4a90e2 !important;
+  color: white !important;
   border: 1px solid #888 !important;
   transition: background-color 0.2s ease, color 0.2s ease !important;
   font-weight: 500 !important;
   cursor: pointer !important;
 }
 
-.custom-button,
-.custom-button-delete {
-  margin: 4px 10px !important;
-  padding: 6px 14px !important;
-  border-radius: 6px !important;
-  background-color: #eee !important;
-  color: #000 !important;
-  border: 1px solid #888 !important;
-  font-weight: 500 !important;
-  cursor: pointer !important;
-  transition: background-color 0.2s ease, color 0.2s ease, transform 0.2s ease !important;
+#admin-stuff button:hover {
+  background-color: #357abd !important;
 }
 
-.custom-button:hover {
-  background-color: #ccc !important;
-  transform: scale(1.05) !important;
+/* Container Styles */
+.page-container {
+  max-width: 100%;
+  margin: 0 auto;
+  padding: 1rem;
+  text-align: left;
+  box-sizing: border-box;
 }
 
-.custom-button-delete {
-  color: #ff7f7f !important;
+/* Form Field Spacing */
+input[type="text"],
+select,
+.slider-container {
+  margin-bottom: 16px; /* Space below each input field */
 }
 
-.custom-button-delete:hover {
-  background-color: #ffdddd !important;
-  color: #b30000 !important;
-  border-color: #b30000 !important;
-  transform: scale(1.05) !important;
+input[type="text"] {
+  width: 60%; /* Reduce width of name input */
 }
 
-/* Hover state */
-.graph-radio-group label:hover {
-  background-color: #ccc;
+/* Hamburger Menu */
+#hamburger {
+  font-size: 14px;
+  cursor: pointer;
+  padding: 12px;
+  background-color: #4a90e2;
+  border-radius: 50%;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
+  text-align: center;
+  width: 60px;
+  height: 60px;
+  position: fixed;
+  top: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 1001;
+  align-items: center;
+  justify-content: center;
+  display: flex;
 }
 
-/* Selected state */
-.graph-radio-group input[type="radio"]:checked + span {
-  background-color: #444 !important;
-  color: white !important;
-  border-radius: 6px;
-  padding: 6px 14px;
-  font-weight: 600;
+#hamburger:hover {
+  background-color: #357abd;
+}
+
+/* Navigation Menu */
+#nav-menu button {
+  width: 100%;
+  padding: 12px;
+  font-size: 14px;
+  border: none;
+  border-radius: 5px;
+  background-color: #4a90e2;
+  color: white;
+  text-align: left;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  cursor: pointer;
+}
+
+#nav-menu {
+  display: none;
+  flex-direction: column;
+  gap: 12px;
+  background-color: #fff;
+  padding: 1rem;
+  border-radius: 8px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  position: fixed;
+  top: 80px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 1000;
+  max-width: 70vw;
+  transition: all 0.3s ease-in-out;
+}
+
+#nav-menu button:hover {
+  background-color: #357abd;
+}
+
+/* Responsive Styles */
+@media (max-width: 768px) {
+  #hamburger {
+    font-size: 12px;
+    padding: 10px;
+    width: 50px;
+    height: 50px;
+  }
+
+  #nav-menu {
+    max-width: 90vw;
+  }
+
+  #nav-menu button {
+    font-size: 12px;
+  }
+}
+
+@media (max-width: 600px) {
+  #nav-menu {
+    max-width: 100%;
+  }
+
+  #nav-menu button {
+    font-size: 14px; /* Adjust font size for readability */
+  }
 }

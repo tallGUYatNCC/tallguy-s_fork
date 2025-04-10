@@ -1,8 +1,8 @@
 /* Global Styles */
 body {
   font-family: "Poppins", sans-serif;
-  background: #f7f7f7; /* Soft light gray background */
-  color: #333; /* Dark gray text */
+  background: #fefae0; /* Creamy off-white background */
+  color: #283618; /* Deep olive text */
   margin: 0;
   padding: 0;
 }
@@ -12,16 +12,16 @@ h2,
 h3,
 h4 {
   font-family: "Roboto", sans-serif;
-  color: #222; /* Slightly darker gray for headers */
+  color: #283618; /* Dark olive for headers */
 }
 
 /* Label Styles */
 label {
   font-weight: 600;
   font-size: 14px;
-  color: #555;
-  margin-bottom: 8px; /* Space between label and input */
-  display: block; /* Ensures label appears above the input field */
+  color: #606c38;
+  margin-bottom: 8px;
+  display: block;
 }
 
 /* Input, Select, Slider Styles */
@@ -29,20 +29,19 @@ input[type="text"],
 select,
 .slider-container {
   background-color: white;
-  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
   border-radius: 8px;
-  border: 1px solid #ccc;
+  border: 1px solid #bc6c25;
   padding: 10px;
   margin-bottom: 16px;
   width: 100%;
   font-size: 16px;
-  box-sizing: border-box; /* Ensures padding is included in the width */
+  box-sizing: border-box;
 }
 
-/* Focus styles for input */
 input:focus,
 select:focus {
-  border-color: #007bff;
+  border-color: #dda15e;
   outline: none;
 }
 
@@ -53,41 +52,69 @@ button {
   font-size: 16px;
   border: none;
   border-radius: 5px;
-  background-color: #007bff;
+  background-color: #bc6c25;
   color: white;
   cursor: pointer;
   margin-top: 20px;
-  box-sizing: border-box; /* Ensures padding is included in the width */
+  box-sizing: border-box;
+  transition: background-color 0.3s ease;
 }
 
 button:hover {
-  background-color: #0056b3;
+  background-color: #dda15e;
+  color: #283618;
 }
 
 /* Admin Panel Styles */
 #admin-stuff {
-  background-color: #888 !important;
+  background-color: #606c38 !important;
+}
+
+.main-layout {
+  font-family: "Inter", sans-serif;
+  background-color: #fefae0;
+  min-height: 100vh;
+  padding: 1rem;
+  color: #283618;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+/* Auth buttons */
+.auth-buttons {
+  text-align: right;
+  margin-bottom: 1rem;
+}
+
+.graph-object {
+  background-color: #fefae0; /* soft cream background */
+  padding: 20px;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(88, 74, 38, 0.1); /* soft olive shadow */
+  border: 2px solid #606c38; /* earthy green border */
+  color: #283618; /* dark olive text for contrast */
 }
 
 #admin-stuff button {
   margin: 4px 10px !important;
   padding: 6px 14px !important;
   border-radius: 6px !important;
-  background-color: #4a90e2 !important;
-  color: white !important;
-  border: 1px solid #888 !important;
+  background-color: #dda15e !important;
+  color: #283618 !important;
+  border: 1px solid #bc6c25 !important;
   transition: background-color 0.2s ease, color 0.2s ease !important;
   font-weight: 500 !important;
   cursor: pointer !important;
 }
 
 #admin-stuff button:hover {
-  background-color: #357abd !important;
+  background-color: #bc6c25 !important;
+  color: white !important;
 }
 
 /* Container Styles */
 .page-container {
-  max-width: 100%;
+  max-width: 90%;
   margin: 0 auto;
   padding: 1rem;
   text-align: left;
@@ -98,48 +125,49 @@ button:hover {
 input[type="text"],
 select,
 .slider-container {
-  margin-bottom: 16px; /* Space below each input field */
+  margin-bottom: 16px;
 }
 
 input[type="text"] {
-  width: 60%; /* Reduce width of name input */
+  width: 60%;
 }
 
 /* Hamburger Menu */
 #hamburger {
   font-size: 14px;
   cursor: pointer;
-  padding: 12px;
-  background-color: #4a90e2;
+  padding: 8px;
+  background-color: #606c38;
   border-radius: 50%;
   box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
   text-align: center;
   width: 60px;
   height: 60px;
   position: fixed;
-  top: 20px;
+  top: 42px;
   left: 50%;
   transform: translateX(-50%);
   z-index: 1001;
   align-items: center;
   justify-content: center;
   display: flex;
+  color: #fefae0;
 }
 
 #hamburger:hover {
-  background-color: #357abd;
+  background-color: #283618;
 }
 
 /* Navigation Menu */
 #nav-menu button {
   width: 100%;
-  padding: 12px;
+  padding: 11px;
   font-size: 14px;
   border: none;
   border-radius: 5px;
-  background-color: #4a90e2;
-  color: white;
-  text-align: left;
+  background-color: #bc6c25;
+  color: #fefae0;
+  text-align: center;
   box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
   cursor: pointer;
 }
@@ -147,8 +175,8 @@ input[type="text"] {
 #nav-menu {
   display: none;
   flex-direction: column;
-  gap: 12px;
-  background-color: #fff;
+  gap: 2px;
+  background-color: #fefae0;
   padding: 1rem;
   border-radius: 8px;
   box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
@@ -162,7 +190,25 @@ input[type="text"] {
 }
 
 #nav-menu button:hover {
-  background-color: #357abd;
+  background-color: #dda15e;
+  color: #283618;
+}
+
+.custom-button-dev {
+  width: 40%;
+  padding: 10px;
+  font-size: 16px;
+  border: none;
+  border-radius: 5px;
+  background-color: #606c38;
+  color: #fefae0;
+  cursor: pointer;
+  margin-top: 20px;
+  box-sizing: border-box;
+}
+
+.custom-button-dev:hover {
+  background-color: #283618;
 }
 
 /* Responsive Styles */
@@ -189,6 +235,6 @@ input[type="text"] {
   }
 
   #nav-menu button {
-    font-size: 14px; /* Adjust font size for readability */
+    font-size: 14px;
   }
 }

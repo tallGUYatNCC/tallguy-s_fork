@@ -121,30 +121,16 @@ def render_layout_with_cookie():
         [
             dcc.Location(id="url", refresh=False),
             html.Div(id="dev-cookie-status-wrapper"),
-            dcc.Store(
-                id="submission-store", data=submitted_cookie
-            ),  # Cookie comes in directly
+            dcc.Store(id="submission-store", data=submitted_cookie),
             dcc.Store(id="loading-flag", data=False),
             dcc.Store(id="chart-request", data="local"),
             dcc.Store(id="is-admin", data=False),
-            html.Div(
-                id="auth-buttons",
-                style={"textAlign": "right", "marginBottom": "1rem"},
-            ),
+            html.Div(id="auth-buttons", className="auth-buttons"),
             html.Div(id="delete-status"),
             html.Div(id="form-error"),
             html.Div(id="page-container", className="page-container"),
-
         ],
-        style={
-        "fontFamily": "Inter, sans-serif",
-        "backgroundColor": "#f9f9f9",
-        "minHeight": "100vh",
-        "padding": "1rem",
-        "color": "#333",
-        "width": "100%",  # Make sure the overall layout is responsive
-        "boxSizing": "border-box",  # Ensure all dimensions consider padding/border
-        },
+        className="main-layout",
     )
 
 
@@ -843,6 +829,30 @@ def generate_us_map():
             "Could not match any state names to abbreviations.",
             style={"color": "red", "textAlign": "center"},
         )
+    all_states = {
+    "Alabama": "AL", "Alaska": "AK", "Arizona": "AZ", "Arkansas": "AR",
+    "California": "CA", "Colorado": "CO", "Connecticut": "CT", "Delaware": "DE",
+    "District Of Columbia": "DC", "Florida": "FL", "Georgia": "GA", "Hawaii": "HI",
+    "Idaho": "ID", "Illinois": "IL", "Indiana": "IN", "Iowa": "IA", "Kansas": "KS",
+    "Kentucky": "KY", "Louisiana": "LA", "Maine": "ME", "Maryland": "MD",
+    "Massachusetts": "MA", "Michigan": "MI", "Minnesota": "MN", "Mississippi": "MS",
+    "Missouri": "MO", "Montana": "MT", "Nebraska": "NE", "Nevada": "NV",
+    "New Hampshire": "NH", "New Jersey": "NJ", "New Mexico": "NM", "New York": "NY",
+    "North Carolina": "NC", "North Dakota": "ND", "Ohio": "OH", "Oklahoma": "OK",
+    "Oregon": "OR", "Pennsylvania": "PA", "Rhode Island": "RI",
+    "South Carolina": "SC", "South Dakota": "SD", "Tennessee": "TN", "Texas": "TX",
+    "Utah": "UT", "Vermont": "VT", "Virginia": "VA", "Washington": "WA",
+    "West Virginia": "WV", "Wisconsin": "WI", "Wyoming": "WY"
+}
+
+    # Fill missing states with count 0
+    for state, code in all_states.items():
+        if state not in state_counts["State"].values:
+            state_counts = pd.concat([
+                state_counts,
+                pd.DataFrame([{"State": state, "Count": 0, "Code": code}])
+            ], ignore_index=True)
+
 
     fig = px.choropleth(
         state_counts,
@@ -853,20 +863,28 @@ def generate_us_map():
         color_continuous_scale="Blues",
     )
 
+    fig.update_traces(
+        marker_line_color="black",  # Black borders
+        marker_line_width=1         # Thin but visible
+    )
+
     fig.update_layout(
         title_text="Respondents by State",
-        geo=dict(lakecolor="rgb(255, 255, 255)"),
+        geo=dict(
+            scope="usa",
+            bgcolor="#FEFAE0",
+            lakecolor="#FEFAE0",
+            showland=True,
+            landcolor="#FAF3D3",
+            showlakes=True,
+        ),
+        paper_bgcolor="#FEFAE0",
+        plot_bgcolor="#FEFAE0",
     )
 
     return html.Div(
         dcc.Graph(figure=fig),
-        style={
-            "backgroundColor": "white",
-            "padding": "20px",
-            "borderRadius": "8px",
-            "boxShadow": "0 2px 8px rgba(0, 0, 0, 0.05)",
-            "border": "2px solid black",
-        },
+        className = "graph-object"
     )
 
 
@@ -890,13 +908,7 @@ def local_counter():
 
     return dcc.Graph(
         figure=style_pie_chart(fig, "Local vs Visitor"),
-        style={
-            "backgroundColor": "white",
-            "padding": "20px",
-            "borderRadius": "8px",
-            "boxShadow": "0 2px 8px rgba(0, 0, 0, 0.05)",
-            "border": "2px solid black",
-        },
+        className = "graph-object"
     )
 
 
@@ -945,17 +957,13 @@ def generate_pie_chart_from_column(column_name, title):
         ),
         margin=dict(t=50, b=80, l=30, r=30),
         height=400,
+        paper_bgcolor="#FEFAE0",   # Match your site's background
+        plot_bgcolor="#FEFAE0",    # Match the plotting area too
     )
 
     return html.Div(
         dcc.Graph(figure=fig),
-        style={
-            "backgroundColor": "white",
-            "padding": "20px",
-            "borderRadius": "8px",
-            "boxShadow": "0 2px 8px rgba(0, 0, 0, 0.05)",
-            "border": "2px solid black",
-        },
+        className = "graph-object"
     )
 
 
@@ -999,16 +1007,12 @@ def generate_bar_chart_from_column(column_name, title):
         margin=dict(t=50, b=80, l=30, r=30),
         height=400,
         showlegend=False,
+        paper_bgcolor="#FEFAE0",   # Match your site's background
+        plot_bgcolor="#FEFAE0",    # Match the plotting area too
     )
 
     return html.Div(dcc.Graph(figure=fig),
-        style={
-            "backgroundColor": "white",
-            "padding": "20px",
-            "borderRadius": "8px",
-            "boxShadow": "0 2px 8px rgba(0, 0, 0, 0.05)",
-            "border": "2px solid black",
-        })
+        className="graph-output")
 
 
 from dash import MATCH
@@ -1041,13 +1045,13 @@ def grant_admin_access(code):
                     "Download CSV",
                     id="download-btn",
                     type="button",
-                    className="custom-button",
+                    className="custom-button-dev",
                     classNameProp=True,
                 ),
                 html.Button(
                     "View Data",
                     id="data_button",
-                    className="custom-button",
+                    className="custom-button-dev",
                     classNameProp=True,
                     type="button",
                 ),
@@ -1055,7 +1059,7 @@ def grant_admin_access(code):
                     "Clear Cookies (Dev)",
                     id="dev-clear-cookies",
                     n_clicks=0,
-                    className="custom-button",
+                    className="custom-button-dev",
                 ),
                 dcc.Download(id="download"),
                 html.Div(
@@ -1065,7 +1069,7 @@ def grant_admin_access(code):
                             id="delete-button",
                             n_clicks=0,
                             style={"color": "red"},
-                            className="custom-button",
+                            className="custom-button-dev",
                             classNameProp=True,
                         ),
                         html.Div(
@@ -1148,6 +1152,8 @@ def style_pie_chart(fig, title):
         ),
         margin=dict(t=50, b=80, l=30, r=30),
         height=400,
+        paper_bgcolor="#FEFAE0",   # Match your site's background
+        plot_bgcolor="#FEFAE0",    # Match the plotting area too
     )
     return fig
 

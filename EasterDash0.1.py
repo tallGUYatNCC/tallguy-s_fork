@@ -476,7 +476,7 @@ def post_submit():
                         "width": "60px",  # Keep it circular
                         "height": "60px",  # Same height to maintain circle
                         "position": "absolute",  # Position it at a fixed spot
-                        "top": "20px",  # Adjust top for centering
+                        "top": "-20px",  # Adjust top for centering
                         "left": "50%",  # Center horizontally
                         "transform": "translateX(-50%)",  # Fine-tune centering
                         "transition": "all 0.3s ease-in-out",  # Smooth transition
@@ -528,7 +528,7 @@ def post_submit():
                             "border": "1px solid #ddd",  # Light border around the menu
                             "boxShadow": "0 4px 6px rgba(0, 0, 0, 0.1)",  # Subtle shadow
                             "position": "absolute",  # Fixed position relative to the hamburger
-                            "top": "95px",  # Adjust vertical position of the menu
+                            "top": "65px",  # Adjust vertical position of the menu
                             "left": "50%",  # Center it horizontally
                             "transform": "translateX(-50%)",  # Fine-tune centering
                             "zIndex": 1000,  # Ensure the menu is above the chart
@@ -1028,7 +1028,14 @@ def generate_bar_chart_from_column(column_name, title):
         showlegend=False,
     )
 
-    return dcc.Graph(figure=fig)
+    return html.Div(dcc.Graph(figure=fig),
+        style={
+            "backgroundColor": "white",
+            "padding": "20px",
+            "borderRadius": "8px",
+            "boxShadow": "0 2px 8px rgba(0, 0, 0, 0.05)",
+            "border": "2px solid black",
+        })
 
 
 from dash import MATCH

@@ -662,15 +662,16 @@ def form_submission(
         try:
             with engine.connect() as conn:
                 query = text("""
-                    INSERT INTO responses (
-                        name, age_range, age, local, country, state,
-                        christ_follower, faith_decicion, how_found
-                    )
-                    VALUES (
-                        :name, :age_range, :age, :local, :country, :state,
-                        :christ_follower, :faith_decicion, :how_found
-                    )
-                """)
+                INSERT INTO responses (
+                    "Name", "Age Range", "Age", "Local", "Country", "State",
+                    "Christ Follower", "Faith Decicion", "How you found us?"
+                )
+                VALUES (
+                    :name, :age_range, :age, :local, :country, :state,
+                    :christ_follower, :faith_decicion, :how_found
+                )
+            """)
+
                 conn.execute(query, {
                     "name": inpu,
                     "age_range": age_category,

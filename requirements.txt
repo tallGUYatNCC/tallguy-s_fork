@@ -6,5 +6,4 @@ authlib
 python-dotenv
 sqlalchemy
 psycopg2-binary
-postgresql
 

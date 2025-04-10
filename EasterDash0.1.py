@@ -758,13 +758,21 @@ def get_chart_layout(chart_type):
             "Faith Decicion", "Faith Decision Count"
         )
     elif chart_type == "data":
-        return dash_table.DataTable(
-            data=df.to_dict("records"),
-            columns=[{"name": str(i), "id": str(i)} for i in df.columns],
-            style_table={"overflowX": "auto"},
-            style_cell={"textAlign": "left", "padding": "5px"},
-            style_header={"fontWeight": "bold"},
-        )
+        try:
+            with engine.connect() as conn:
+                df_sql = pd.read_sql("SELECT * FROM responses", conn)
+
+            return dash_table.DataTable(
+                data=df_sql.to_dict("records"),
+                columns=[{"name": str(i), "id": str(i)} for i in df_sql.columns],
+                style_table={"overflowX": "auto"},
+                style_cell={"textAlign": "left", "padding": "5px"},
+                style_header={"fontWeight": "bold"},
+                page_size=20,
+            )
+        except Exception as e:
+            print("View Data SQL query failed:", e)
+            return html.Div("❌ Could not load data from the database.")
     else:
         return html.Div("Unknown chart type.")
 

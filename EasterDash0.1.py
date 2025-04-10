@@ -13,6 +13,7 @@ from dash import (
     callback_context,
     ALL,
 )
+
 from dash.exceptions import PreventUpdate
 from dash import ClientsideFunction
 import plotly.express as px
@@ -26,6 +27,10 @@ from functools import wraps
 from flask import redirect, session, url_for, request
 from authlib.integrations.flask_client import OAuth
 from dotenv import load_dotenv
+from sqlalchemy import create_engine
+
+DATABASE_URL = os.getenv("DATABASE_URL")
+engine = create_engine(DATABASE_URL)
 
 AUTH0_CLIENT_ID = os.environ.get("AUTH0_CLIENT_ID", "your-client-id")
 AUTH0_CLIENT_SECRET = os.environ.get(
@@ -95,10 +100,13 @@ columns = [
 df = pd.DataFrame()
 current_chart = "local"
 
-if os.path.exists(CSV_PATH):
-    df = pd.read_csv(CSV_PATH, names=columns, header=0)
-else:
-    df = pd.DataFrame(columns=columns)
+def load_df():
+    with engine.connect() as conn:
+        return pd.read_sql("SELECT * FROM responses", conn)
+    
+df = load_df()
+
+
 
 app = Dash(__name__, routes_pathname_prefix="/")
 server = app.server
@@ -161,6 +169,10 @@ def get_country_list():
     try:
         response = requests.get("https://restcountries.com/v3.1/all")
         countries = sorted([c["name"]["common"] for c in response.json()])
+
+        if "United States" in countries:
+            countries.remove("United States")
+        countries.insert(0, "United States")
         return countries
     except Exception as e:
         print("Failed to fetch countries:", str(e))
@@ -660,8 +672,33 @@ def form_submission(
         )
 
         global df
-        df = pd.concat([df, new_row], ignore_index=True)
-        df.to_csv(CSV_PATH, index=False)
+        try:
+            with engine.connect() as conn:
+                query = text("""
+                    INSERT INTO responses (
+                        name, age_range, age, local, country, state,
+                        christ_follower, faith_decicion, how_found
+                    )
+                    VALUES (
+                        :name, :age_range, :age, :local, :country, :state,
+                        :christ_follower, :faith_decicion, :how_found
+                    )
+                """)
+                conn.execute(query, {
+                    "name": inpu,
+                    "age_range": age_category,
+                    "age": age_val,
+                    "local": local_value,
+                    "country": country_,
+                    "state": state_,
+                    "christ_follower": christian,
+                    "faith_decicion": faith,
+                    "how_found": howtheyfoundus,
+                })
+        except Exception as e:
+            print("Database insert error:", e)
+            return no_update, False, "Error saving your submission.", False
+
 
         # Set loading to true after successful submission
         return "local", "true", "", True
@@ -746,273 +783,167 @@ def get_chart_layout(chart_type):
 
 
 def generate_us_map():
-    global df
-    dataframe = df
+    try:
+        with engine.connect() as conn:
+            result = conn.execute(text("""
+                SELECT state, COUNT(*) 
+                FROM responses 
+                WHERE state IS NOT NULL AND state != ''
+                GROUP BY state
+            """)).fetchall()
 
-    # Basic validation: check if 'State' column exists and has values
-    if (
-        dataframe.empty
-        or "State" not in dataframe.columns
-        or dataframe["State"].dropna().empty
-    ):
-        return html.Div(
-            "No state data available to display on map.",
-            style={"color": "gray", "textAlign": "center"},
-        )
+        if not result:
+            return html.Div("No state data available.", style={"color": "gray", "textAlign": "center"})
 
-    # Strip and normalize state names
-    dataframe["State"] = dataframe["State"].astype(str).str.strip().str.title()
+        state_abbrev = {
+            "Alabama": "AL", "Alaska": "AK", "Arizona": "AZ", "Arkansas": "AR",
+            "California": "CA", "Colorado": "CO", "Connecticut": "CT", "Delaware": "DE",
+            "District Of Columbia": "DC", "Florida": "FL", "Georgia": "GA", "Hawaii": "HI",
+            "Idaho": "ID", "Illinois": "IL", "Indiana": "IN", "Iowa": "IA", "Kansas": "KS",
+            "Kentucky": "KY", "Louisiana": "LA", "Maine": "ME", "Maryland": "MD",
+            "Massachusetts": "MA", "Michigan": "MI", "Minnesota": "MN", "Mississippi": "MS",
+            "Missouri": "MO", "Montana": "MT", "Nebraska": "NE", "Nevada": "NV",
+            "New Hampshire": "NH", "New Jersey": "NJ", "New Mexico": "NM", "New York": "NY",
+            "North Carolina": "NC", "North Dakota": "ND", "Ohio": "OH", "Oklahoma": "OK",
+            "Oregon": "OR", "Pennsylvania": "PA", "Rhode Island": "RI",
+            "South Carolina": "SC", "South Dakota": "SD", "Tennessee": "TN", "Texas": "TX",
+            "Utah": "UT", "Vermont": "VT", "Virginia": "VA", "Washington": "WA",
+            "West Virginia": "WV", "Wisconsin": "WI", "Wyoming": "WY"
+        }
 
-    # Count responses per state
-    state_counts = dataframe["State"].value_counts().reset_index()
-    state_counts.columns = ["State", "Count"]
+        state_names, counts = zip(*result)
+        df_chart = pd.DataFrame({
+            "State": [s.strip().title() for s in state_names],
+            "Count": counts
+        })
+        df_chart["Code"] = df_chart["State"].map(state_abbrev)
 
-    # State name to abbreviation mapping
-    state_abbrev = {
-        "Alabama": "AL",
-        "Alaska": "AK",
-        "Arizona": "AZ",
-        "Arkansas": "AR",
-        "California": "CA",
-        "Colorado": "CO",
-        "Connecticut": "CT",
-        "Delaware": "DE",
-        "District Of Columbia": "DC",
-        "Florida": "FL",
-        "Georgia": "GA",
-        "Hawaii": "HI",
-        "Idaho": "ID",
-        "Illinois": "IL",
-        "Indiana": "IN",
-        "Iowa": "IA",
-        "Kansas": "KS",
-        "Kentucky": "KY",
-        "Louisiana": "LA",
-        "Maine": "ME",
-        "Maryland": "MD",
-        "Massachusetts": "MA",
-        "Michigan": "MI",
-        "Minnesota": "MN",
-        "Mississippi": "MS",
-        "Missouri": "MO",
-        "Montana": "MT",
-        "Nebraska": "NE",
-        "Nevada": "NV",
-        "New Hampshire": "NH",
-        "New Jersey": "NJ",
-        "New Mexico": "NM",
-        "New York": "NY",
-        "North Carolina": "NC",
-        "North Dakota": "ND",
-        "Ohio": "OH",
-        "Oklahoma": "OK",
-        "Oregon": "OR",
-        "Pennsylvania": "PA",
-        "Rhode Island": "RI",
-        "South Carolina": "SC",
-        "South Dakota": "SD",
-        "Tennessee": "TN",
-        "Texas": "TX",
-        "Utah": "UT",
-        "Vermont": "VT",
-        "Virginia": "VA",
-        "Washington": "WA",
-        "West Virginia": "WV",
-        "Wisconsin": "WI",
-        "Wyoming": "WY",
-    }
-
-    state_counts["Code"] = state_counts["State"].map(state_abbrev)
-
-    if state_counts["Code"].isnull().all():
-        return html.Div(
-            "Could not match any state names to abbreviations.",
-            style={"color": "red", "textAlign": "center"},
-        )
-    all_states = {
-    "Alabama": "AL", "Alaska": "AK", "Arizona": "AZ", "Arkansas": "AR",
-    "California": "CA", "Colorado": "CO", "Connecticut": "CT", "Delaware": "DE",
-    "District Of Columbia": "DC", "Florida": "FL", "Georgia": "GA", "Hawaii": "HI",
-    "Idaho": "ID", "Illinois": "IL", "Indiana": "IN", "Iowa": "IA", "Kansas": "KS",
-    "Kentucky": "KY", "Louisiana": "LA", "Maine": "ME", "Maryland": "MD",
-    "Massachusetts": "MA", "Michigan": "MI", "Minnesota": "MN", "Mississippi": "MS",
-    "Missouri": "MO", "Montana": "MT", "Nebraska": "NE", "Nevada": "NV",
-    "New Hampshire": "NH", "New Jersey": "NJ", "New Mexico": "NM", "New York": "NY",
-    "North Carolina": "NC", "North Dakota": "ND", "Ohio": "OH", "Oklahoma": "OK",
-    "Oregon": "OR", "Pennsylvania": "PA", "Rhode Island": "RI",
-    "South Carolina": "SC", "South Dakota": "SD", "Tennessee": "TN", "Texas": "TX",
-    "Utah": "UT", "Vermont": "VT", "Virginia": "VA", "Washington": "WA",
-    "West Virginia": "WV", "Wisconsin": "WI", "Wyoming": "WY"
-}
-
-    # Fill missing states with count 0
-    for state, code in all_states.items():
-        if state not in state_counts["State"].values:
-            state_counts = pd.concat([
-                state_counts,
-                pd.DataFrame([{"State": state, "Count": 0, "Code": code}])
-            ], ignore_index=True)
-
-
-    fig = px.choropleth(
-        state_counts,
-        locations="Code",
-        locationmode="USA-states",
-        color="Count",
-        scope="usa",
-        color_continuous_scale="Blues",
-    )
-
-    fig.update_traces(
-        marker_line_color="black",  # Black borders
-        marker_line_width=1         # Thin but visible
-    )
-
-    fig.update_layout(
-        title_text="Respondents by State",
-        geo=dict(
+        fig = px.choropleth(
+            df_chart,
+            locations="Code",
+            locationmode="USA-states",
+            color="Count",
             scope="usa",
-            bgcolor="#FEFAE0",
-            lakecolor="#FEFAE0",
-            showland=True,
-            landcolor="#FAF3D3",
-            showlakes=True,
-        ),
-        paper_bgcolor="#FEFAE0",
-        plot_bgcolor="#FEFAE0",
-    )
+            color_continuous_scale="Blues",
+        )
 
-    return html.Div(
-        dcc.Graph(figure=fig),
-        className = "graph-object"
-    )
+        fig.update_layout(
+            title_text="Respondents by State",
+            geo=dict(scope="usa", bgcolor="#FEFAE0", lakecolor="#FEFAE0", showland=True, landcolor="#FAF3D3", showlakes=True),
+            paper_bgcolor="#FEFAE0",
+            plot_bgcolor="#FEFAE0",
+        )
+
+        return html.Div(dcc.Graph(figure=fig), className="graph-object")
+
+    except Exception as e:
+        print("Map chart query failed:", e)
+        return html.Div("Failed to load state map.")
 
 
-def local_counter():
-    label_map = {True: "Local", False: "Visitor"}
-    renamed_series = df["Local"].map(label_map)
+def local_counter_sql():
+    try:
+        with engine.connect() as conn:
+            result = conn.execute(text("""
+                SELECT local, COUNT(*) 
+                FROM responses 
+                GROUP BY local
+            """)).fetchall()
 
-    count_series = renamed_series.value_counts()
-    pie_df = pd.DataFrame(
-        {"Visitor": count_series.index, "Count": count_series.values}
-    )
+        if not result:
+            return html.Div("No data available.")
 
-    fig = px.pie(
-        pie_df,
-        names="Visitor",
-        values="Count",
-        color="Visitor",
-        color_discrete_map={"Local": "blue", "Visitor": "purple"},
-        hole=0.1,
-    )
+        label_map = {True: "Local", False: "Visitor"}
+        labels, counts = zip(*result)
+        labels_mapped = [label_map.get(l, "Unknown") for l in labels]
 
-    return dcc.Graph(
-        figure=style_pie_chart(fig, "Local vs Visitor"),
-        className = "graph-object"
-    )
+        df_chart = pd.DataFrame({"Visitor": labels_mapped, "Count": counts})
+
+        fig = px.pie(
+            df_chart,
+            names="Visitor",
+            values="Count",
+            color="Visitor",
+            color_discrete_map={"Local": "blue", "Visitor": "purple"},
+            hole=0.1,
+        )
+
+        return html.Div(dcc.Graph(figure=style_pie_chart(fig, "Local vs Visitor")), className="graph-object")
+
+    except Exception as e:
+        print("Local chart query failed:", e)
+        return html.Div("Failed to load chart.")
 
 
 def generate_pie_chart_from_column(column_name, title):
-    global df
-    if column_name not in df.columns or df.empty:
-        return html.Div(
-            "No data available.",
-            style={"textAlign": "center", "color": "gray"},
+    try:
+        with engine.connect() as conn:
+            result = conn.execute(text(f"""
+                SELECT "{column_name}", COUNT(*) 
+                FROM responses 
+                GROUP BY "{column_name}"
+            """)).fetchall()
+
+        if not result:
+            return html.Div("No data available.")
+
+        labels, counts = zip(*result)
+        df_chart = pd.DataFrame({"Label": labels, "Count": counts})
+
+        fig = px.pie(
+            df_chart,
+            names="Label",
+            values="Count",
+            hole=0.1,
         )
 
-    count_series = df[column_name].value_counts()
+        return html.Div(dcc.Graph(figure=style_pie_chart(fig, title)), className="graph-object")
 
-    # Automatically cycle through 6 colors
-    default_colors = [
-        "#636EFA",
-        "#EF553B",
-        "#00CC96",
-        "#AB63FA",
-        "#FFA15A",
-        "#19D3F3",
-    ]
-
-    fig = px.pie(
-        pd.DataFrame(
-            {"Label": count_series.index, "Count": count_series.values}
-        ),
-        names="Label",
-        values="Count",
-        hole=0.1,
-        color_discrete_sequence=default_colors,
-    )
-
-    fig.update_traces(
-        textposition="inside",
-        textinfo="percent+label",
-        hovertemplate="%{label}: %{value}<extra></extra>",
-    )
-
-    fig.update_layout(
-        title_text=title,
-        title_x=0.5,
-        legend_title_text="",
-        legend=dict(
-            orientation="h", yanchor="bottom", y=-0.2, xanchor="center", x=0.5
-        ),
-        margin=dict(t=50, b=80, l=30, r=30),
-        height=400,
-        paper_bgcolor="#FEFAE0",   # Match your site's background
-        plot_bgcolor="#FEFAE0",    # Match the plotting area too
-    )
-
-    return html.Div(
-        dcc.Graph(figure=fig),
-        className = "graph-object"
-    )
+    except Exception as e:
+        print("Chart query failed:", e)
+        return html.Div("Failed to load chart.")
 
 
 def generate_bar_chart_from_column(column_name, title):
-    global df
-    if column_name not in df.columns or df.empty:
-        return html.Div(
-            "No data available.",
-            style={"textAlign": "center", "color": "gray"},
+    try:
+        with engine.connect() as conn:
+            result = conn.execute(text(f"""
+                SELECT "{column_name}", COUNT(*) 
+                FROM responses 
+                GROUP BY "{column_name}"
+                ORDER BY "{column_name}"
+            """)).fetchall()
+
+        if not result:
+            return html.Div("No data available.")
+
+        labels, counts = zip(*result)
+        df_chart = pd.DataFrame({"Label": labels, "Count": counts})
+
+        fig = px.bar(
+            df_chart,
+            x="Label",
+            y="Count",
+            color="Label",
+            title=title,
         )
 
-    count_series = df[column_name].value_counts()
+        fig.update_layout(
+            xaxis_title=None,
+            yaxis_title="Count",
+            title_x=0.5,
+            margin=dict(t=50, b=80, l=30, r=30),
+            height=400,
+            showlegend=False,
+            paper_bgcolor="#FEFAE0",
+            plot_bgcolor="#FEFAE0",
+        )
 
-    # Automatically cycle through 6 colors
-    default_colors = [
-        "#636EFA",
-        "#EF553B",
-        "#00CC96",
-        "#AB63FA",
-        "#FFA15A",
-        "#19D3F3",
-    ]
-
-    fig = px.bar(
-        pd.DataFrame(
-            {"Label": count_series.index, "Count": count_series.values}
-        ),
-        x="Label",
-        y="Count",
-        color="Label",
-        color_discrete_sequence=default_colors,
-        title=title,
-    )
-
-    fig.update_traces(hovertemplate="%{x}: %{y}<extra></extra>")
-
-    fig.update_layout(
-        xaxis_title=None,
-        yaxis_title="Count",
-        title_x=0.5,
-        margin=dict(t=50, b=80, l=30, r=30),
-        height=400,
-        showlegend=False,
-        paper_bgcolor="#FEFAE0",   # Match your site's background
-        plot_bgcolor="#FEFAE0",    # Match the plotting area too
-    )
-
-    return html.Div(dcc.Graph(figure=fig),
-        className="graph-output")
+        return html.Div(dcc.Graph(figure=fig), className="graph-output")
+    
+    except Exception as e:
+        print("Bar chart query failed:", e)
+        return html.Div("Failed to load chart.")
 
 
 from dash import MATCH

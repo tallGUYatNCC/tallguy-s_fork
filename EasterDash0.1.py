@@ -500,21 +500,47 @@ def post_submit():
 
 # Hamburger Menu Callback:
 @app.callback(
-    Output("nav-menu", "style"),
+    Output("nav-menu", "style", allow_duplicate = True),
     Input("hamburger", "n_clicks"),
     State("nav-menu", "style"),
     prevent_initial_call=True,
 )
 def toggle_nav(n_clicks, current_style):
-    if n_clicks:
-        # Toggle display based on the current style of the menu
-        new_style = current_style.copy() if current_style else {}
-        if new_style.get("display") == "none":
-            new_style["display"] = "flex"  # Show the menu
-        else:
-            new_style["display"] = "none"  # Hide the menu
-        return new_style
-    return no_update
+    if n_clicks is None:
+        return no_update
+
+    # If there is no current style, set it to an initial state
+    if current_style is None:
+        return {"display": "flex"}
+
+    # Toggle display based on the current style of the menu
+    new_style = current_style.copy() if current_style else {}
+    if new_style.get("display") == "none":
+        new_style["display"] = "flex"  # Show the menu
+    else:
+        new_style["display"] = "none"  # Hide the menu
+    return new_style
+
+@app.callback(
+    Output("nav-menu", "style", allow_duplicate = True),
+    Output("chart-request", "data"),  # Update the chart request
+    Input({"type": "chart-btn", "value": ALL}, "n_clicks"),
+    prevent_initial_call=True,
+)
+def toggle_nav_and_select_chart(n_clicks_list):
+    triggered = ctx.triggered_id
+
+    if not triggered:
+        raise PreventUpdate
+
+    # Hide the nav menu after chart selection
+    new_style = {"display": "none"}
+
+    # Get the chart type from the button that was clicked
+    chart_type = triggered["value"]
+
+    return new_style, chart_type
+
 
 
 

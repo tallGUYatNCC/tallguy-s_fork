@@ -1,75 +1,240 @@
-/* Target the span text part of radio buttons */
-.graph-radio-group input[type="radio"] {
-  display: none;
+/* Global Styles */
+body {
+  font-family: "Poppins", sans-serif;
+  background: #fefae0; /* Creamy off-white background */
+  color: #283618; /* Deep olive text */
+  margin: 0;
+  padding: 0;
 }
 
-.graph-radio-group label {
-  display: inline-block;
-  margin: 4px 10px;
-  padding: 6px 14px;
-  border-radius: 6px;
-  background-color: #eee;
-  color: #000;
-  border: 1px solid #888;
-  transition: background-color 0.2s ease, color 0.2s ease;
+h1,
+h2,
+h3,
+h4 {
+  font-family: "Roboto", sans-serif;
+  color: #283618; /* Dark olive for headers */
+}
+
+/* Label Styles */
+label {
+  font-weight: 600;
+  font-size: 14px;
+  color: #606c38;
+  margin-bottom: 8px;
+  display: block;
+}
+
+/* Input, Select, Slider Styles */
+input[type="text"],
+select,
+.slider-container {
+  background-color: white;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
+  border-radius: 8px;
+  border: 1px solid #bc6c25;
+  padding: 10px;
+  margin-bottom: 16px;
+  width: 100%;
+  font-size: 16px;
+  box-sizing: border-box;
+}
+
+input:focus,
+select:focus {
+  border-color: #dda15e;
+  outline: none;
+}
+
+/* Submit Button */
+button {
+  width: 100%;
+  padding: 12px;
+  font-size: 16px;
+  border: none;
+  border-radius: 5px;
+  background-color: #bc6c25;
+  color: white;
   cursor: pointer;
+  margin-top: 20px;
+  box-sizing: border-box;
+  transition: background-color 0.3s ease;
 }
 
+button:hover {
+  background-color: #dda15e;
+  color: #283618;
+}
+
+/* Admin Panel Styles */
 #admin-stuff {
-  background-color: #888 !important;
+  background-color: #606c38 !important;
+}
+
+.main-layout {
+  font-family: "Inter", sans-serif;
+  background-color: #fefae0;
+  min-height: 100vh;
+  padding: 1rem;
+  color: #283618;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+/* Auth buttons */
+.auth-buttons {
+  text-align: right;
+  margin-bottom: 1rem;
+}
+
+.graph-object {
+  background-color: #fefae0; /* soft cream background */
+  padding: 20px;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(88, 74, 38, 0.1); /* soft olive shadow */
+  border: 2px solid #606c38; /* earthy green border */
+  color: #283618; /* dark olive text for contrast */
 }
 
 #admin-stuff button {
   margin: 4px 10px !important;
   padding: 6px 14px !important;
   border-radius: 6px !important;
-  background-color: #eee !important;
-  color: #000 !important;
-  border: 1px solid #888 !important;
+  background-color: #dda15e !important;
+  color: #283618 !important;
+  border: 1px solid #bc6c25 !important;
   transition: background-color 0.2s ease, color 0.2s ease !important;
   font-weight: 500 !important;
   cursor: pointer !important;
 }
 
-.custom-button,
-.custom-button-delete {
-  margin: 4px 10px !important;
-  padding: 6px 14px !important;
-  border-radius: 6px !important;
-  background-color: #eee !important;
-  color: #000 !important;
-  border: 1px solid #888 !important;
-  font-weight: 500 !important;
-  cursor: pointer !important;
-  transition: background-color 0.2s ease, color 0.2s ease, transform 0.2s ease !important;
-}
-
-.custom-button:hover {
-  background-color: #ccc !important;
-  transform: scale(1.05) !important;
-}
-
-.custom-button-delete {
-  color: #ff7f7f !important;
-}
-
-.custom-button-delete:hover {
-  background-color: #ffdddd !important;
-  color: #b30000 !important;
-  border-color: #b30000 !important;
-  transform: scale(1.05) !important;
-}
-
-/* Hover state */
-.graph-radio-group label:hover {
-  background-color: #ccc;
-}
-
-/* Selected state */
-.graph-radio-group input[type="radio"]:checked + span {
-  background-color: #444 !important;
+#admin-stuff button:hover {
+  background-color: #bc6c25 !important;
   color: white !important;
-  border-radius: 6px;
-  padding: 6px 14px;
-  font-weight: 600;
+}
+
+/* Container Styles */
+.page-container {
+  max-width: 90%;
+  margin: 0 auto;
+  padding: 1rem;
+  text-align: left;
+  box-sizing: border-box;
+}
+
+/* Form Field Spacing */
+input[type="text"],
+select,
+.slider-container {
+  margin-bottom: 16px;
+}
+
+input[type="text"] {
+  width: 60%;
+}
+
+/* Hamburger Menu */
+#hamburger {
+  font-size: 14px;
+  cursor: pointer;
+  padding: 8px;
+  background-color: #606c38;
+  border-radius: 50%;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
+  text-align: center;
+  width: 60px;
+  height: 60px;
+  position: fixed;
+  top: 42px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 1001;
+  align-items: center;
+  justify-content: center;
+  display: flex;
+  color: #fefae0;
+}
+
+#hamburger:hover {
+  background-color: #283618;
+}
+
+/* Navigation Menu */
+#nav-menu button {
+  width: 100%;
+  padding: 11px;
+  font-size: 14px;
+  border: none;
+  border-radius: 5px;
+  background-color: #bc6c25;
+  color: #fefae0;
+  text-align: center;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  cursor: pointer;
+}
+
+#nav-menu {
+  display: none;
+  flex-direction: column;
+  gap: 2px;
+  background-color: #fefae0;
+  padding: 1rem;
+  border-radius: 8px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  position: fixed;
+  top: 80px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 1000;
+  max-width: 70vw;
+  transition: all 0.3s ease-in-out;
+}
+
+#nav-menu button:hover {
+  background-color: #dda15e;
+  color: #283618;
+}
+
+.custom-button-dev {
+  width: 40%;
+  padding: 10px;
+  font-size: 16px;
+  border: none;
+  border-radius: 5px;
+  background-color: #606c38;
+  color: #fefae0;
+  cursor: pointer;
+  margin-top: 20px;
+  box-sizing: border-box;
+}
+
+.custom-button-dev:hover {
+  background-color: #283618;
+}
+
+/* Responsive Styles */
+@media (max-width: 768px) {
+  #hamburger {
+    font-size: 12px;
+    padding: 10px;
+    width: 50px;
+    height: 50px;
+  }
+
+  #nav-menu {
+    max-width: 90vw;
+  }
+
+  #nav-menu button {
+    font-size: 12px;
+  }
+}
+
+@media (max-width: 600px) {
+  #nav-menu {
+    max-width: 100%;
+  }
+
+  #nav-menu button {
+    font-size: 14px;
+  }
 }

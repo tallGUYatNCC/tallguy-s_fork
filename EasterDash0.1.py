@@ -13,6 +13,7 @@ from dash import (
     callback_context,
     ALL,
 )
+
 from dash.exceptions import PreventUpdate
 from dash import ClientsideFunction
 import plotly.express as px
@@ -27,6 +28,10 @@ from functools import wraps
 from flask import redirect, session, url_for, request
 from authlib.integrations.flask_client import OAuth
 from dotenv import load_dotenv
+from sqlalchemy import create_engine
+
+DATABASE_URL = os.getenv("DATABASE_URL")
+engine = create_engine(DATABASE_URL)
 
 AUTH0_CLIENT_ID = os.environ.get("AUTH0_CLIENT_ID", "your-client-id")
 AUTH0_CLIENT_SECRET = os.environ.get(
@@ -96,10 +101,13 @@ columns = [
 df = pd.DataFrame()
 current_chart = "local"
 
-if os.path.exists(CSV_PATH):
-    df = pd.read_csv(CSV_PATH, names=columns, header=0)
-else:
-    df = pd.DataFrame(columns=columns)
+def load_df():
+    with engine.connect() as conn:
+        return pd.read_sql("SELECT * FROM responses", conn)
+    
+df = load_df()
+
+
 
 app = Dash(__name__, routes_pathname_prefix="/")
 server = app.server
@@ -122,35 +130,16 @@ def render_layout_with_cookie():
         [
             dcc.Location(id="url", refresh=False),
             html.Div(id="dev-cookie-status-wrapper"),
-            dcc.Store(
-                id="submission-store", data=submitted_cookie
-            ),  # Cookie comes in directly
+            dcc.Store(id="submission-store", data=submitted_cookie),
             dcc.Store(id="loading-flag", data=False),
             dcc.Store(id="chart-request", data="local"),
             dcc.Store(id="is-admin", data=False),
-            html.Div(
-                id="auth-buttons",
-                style={"textAlign": "right", "marginBottom": "1rem"},
-            ),
+            html.Div(id="auth-buttons", className="auth-buttons"),
             html.Div(id="delete-status"),
             html.Div(id="form-error"),
-            html.Div(
-                id="page-container",
-                style={
-                    "maxWidth": "900px",
-                    "margin": "0 auto",
-                    "padding": "1rem",
-                    "textAlign": "left",
-                },
-            ),
+            html.Div(id="page-container", className="page-container"),
         ],
-        style={
-            "fontFamily": "Inter, sans-serif",
-            "backgroundColor": "#f9f9f9",
-            "minHeight": "100vh",
-            "padding": "1rem",
-            "color": "#333",
-        },
+        className="main-layout",
     )
 
 
@@ -181,6 +170,10 @@ def get_country_list():
     try:
         response = requests.get("https://restcountries.com/v3.1/all")
         countries = sorted([c["name"]["common"] for c in response.json()])
+
+        if "United States" in countries:
+            countries.remove("United States")
+        countries.insert(0, "United States")
         return countries
     except Exception as e:
         print("Failed to fetch countries:", str(e))
@@ -269,13 +262,7 @@ def pre_submit():
                         type="text",
                         placeholder="Type here...",
                         value="",
-                        style={
-                            "width": "30%",
-                            "outline": "1px solid black",
-                            "marginTop": "5px",
-                            "borderRadius": "1px",
-                            "marginLeft": "10px",
-                        },
+                        className="form-input",
                     ),
                 ],
                 style={"marginBottom": "1rem"},
@@ -367,12 +354,7 @@ def pre_submit():
                         type="text",
                         placeholder="(Optionally) Type here...",
                         value="",
-                        style={
-                            "width": "100%",
-                            "outline": "1px solid black",
-                            "marginTop": "5px",
-                            "borderRadius": "1px",
-                        },
+                        className="form-input",
                     ),
                 ],
                 style={"marginBottom": "2rem"},
@@ -383,7 +365,7 @@ def pre_submit():
                         "Submit",
                         id="submit-button",
                         n_clicks=0,
-                        style=button_style,
+                        className="custom-button",
                     )
                 ],
                 style={"textAlign": "center", "marginBottom": "2rem"},
@@ -462,27 +444,6 @@ def post_submit():
                         "Select Chart",
                         id="hamburger",
                         n_clicks=0,
-                        style = {
-                        "fontSize": "12px",  # Adjust font size as needed
-                        "cursor": "pointer",
-                        "padding": "10px",  # Padding for the button
-                        "display": "flex",  # Use flexbox for centering
-                        "justifyContent": "center",  # Horizontally center the text
-                        "alignItems": "center",  # Vertically center the text
-                        "userSelect": "none",
-                        "backgroundColor": "#007bff",  # Blue color
-                        "borderRadius": "50%",  # Circular shape
-                        "boxShadow": "0 4px 6px rgba(0, 0, 0, 0.2)",  # Depth effect
-                        "textAlign": "center",  # Ensure text is aligned
-                        "width": "60px",  # Keep it circular
-                        "height": "60px",  # Same height to maintain circle
-                        "position": "absolute",  # Position it at a fixed spot
-                        "top": "-20px",  # Adjust top for centering
-                        "left": "50%",  # Center horizontally
-                        "transform": "translateX(-50%)",  # Fine-tune centering
-                        "transition": "all 0.3s ease-in-out",  # Smooth transition
-                        "zIndex": 1001,  # Ensure it stays on top of other elements
-                        },
                     ),
                     
                     # Centered navigation menu (hidden initially)
@@ -493,50 +454,33 @@ def post_submit():
                                 "Locals",
                                 id={"type": "chart-btn", "value": "local"},
                                 n_clicks=0,
-                                style=button_style,
+                                className="custom-button",
                             ),
                             html.Button(
                                 "Where?",
                                 id={"type": "chart-btn", "value": "state_map"},
                                 n_clicks=0,
-                                style=button_style,
+                                className="custom-button",
                             ),
                             html.Button(
                                 "Ages",
                                 id={"type": "chart-btn", "value": "age"},
                                 n_clicks=0,
-                                style=button_style,
+                                className="custom-button",
                             ),
                             html.Button(
                                 "Christ Followers",
                                 id={"type": "chart-btn", "value": "christians"},
                                 n_clicks=0,
-                                style=button_style,
+                                className="custom-button",
                             ),
                             html.Button(
                                 "Faith Decisions",
                                 id={"type": "chart-btn", "value": "faithdecicion"},
                                 n_clicks=0,
-                                style=button_style,
+                                className="custom-button",
                             ),
                         ],
-                        style={
-                            "display": "none",  # Initially hidden
-                            "flexDirection": "column",  # Stack items vertically
-                            "gap": "15px",  # Space between the buttons
-                            "backgroundColor": "#fff",  # Clean background
-                            "padding": "1.5rem",  # Padding around the menu
-                            "border": "1px solid #ddd",  # Light border around the menu
-                            "boxShadow": "0 4px 6px rgba(0, 0, 0, 0.1)",  # Subtle shadow
-                            "position": "absolute",  # Fixed position relative to the hamburger
-                            "top": "65px",  # Adjust vertical position of the menu
-                            "left": "50%",  # Center it horizontally
-                            "transform": "translateX(-50%)",  # Fine-tune centering
-                            "zIndex": 1000,  # Ensure the menu is above the chart
-                            "maxWidth": "70vw",  # Reduce max width to avoid excessive size
-                            "borderRadius": "8px",  # Rounded corners
-                            "transition": "all 0.3s ease-in-out",  # Smooth transition for visibility
-                        },
                     ),
                 ],
                 style={"position": "absolute"},
@@ -555,21 +499,48 @@ def post_submit():
 
 # Hamburger Menu Callback:
 @app.callback(
-    Output("nav-menu", "style"),
+    Output("nav-menu", "style", allow_duplicate = True),
     Input("hamburger", "n_clicks"),
     State("nav-menu", "style"),
     prevent_initial_call=True,
 )
 def toggle_nav(n_clicks, current_style):
-    if n_clicks:
-        # Toggle display based on the current style of the menu
-        new_style = current_style.copy()
-        if new_style.get("display") == "none":
-            new_style["display"] = "flex"  # Show the menu
-        else:
-            new_style["display"] = "none"  # Hide the menu
-        return new_style
-    return no_update
+    if n_clicks is None:
+        return no_update
+
+    # If there is no current style, set it to an initial state
+    if current_style is None:
+        return {"display": "flex"}
+
+    # Toggle display based on the current style of the menu
+    new_style = current_style.copy() if current_style else {}
+    if new_style.get("display") == "none":
+        new_style["display"] = "flex"  # Show the menu
+    else:
+        new_style["display"] = "none"  # Hide the menu
+    return new_style
+
+@app.callback(
+    Output("nav-menu", "style", allow_duplicate = True),
+    Output("chart-request", "data"),  # Update the chart request
+    Input({"type": "chart-btn", "value": ALL}, "n_clicks"),
+    prevent_initial_call=True,
+)
+def toggle_nav_and_select_chart(n_clicks_list):
+    triggered = ctx.triggered_id
+
+    if not triggered:
+        raise PreventUpdate
+
+    # Hide the nav menu after chart selection
+    new_style = {"display": "none"}
+
+    # Get the chart type from the button that was clicked
+    chart_type = triggered["value"]
+
+    return new_style, chart_type
+
+
 
 
 
@@ -582,29 +553,16 @@ delete_triggered = False  # Delete safeguard
     Input("delete-button", "n_clicks"),
     prevent_initial_call=True,
 )
-def delete_csv(n_clicks):
-    global df
-    if os.path.exists(CSV_PATH):
-        os.remove(CSV_PATH)
-        df = pd.DataFrame(columns=columns)
-        request._clear_cookie = True
-        return "✅ responses.csv deleted. Refreshing..."
-    return "responses.csv does not exist."
-
-    # Hard stop if already triggered
-    if delete_triggered:
-        raise PreventUpdate
-
-    # Only proceed if user truly clicked
+def delete_sql_responses(n_clicks):
     if ctx.triggered_id == "delete-button" and n_clicks:
-        delete_triggered = True
-        if os.path.exists(CSV_PATH):
-            os.remove(CSV_PATH)
-            df = pd.DataFrame(columns=columns)
+        try:
+            with engine.connect() as conn:
+                conn.execute(text("DELETE FROM responses"))
             request._clear_cookie = True
-            return "responses.csv deleted successfully.", True
-        return "responses.csv does not exist.", False
-
+            return "✅ All responses deleted from the database."
+        except Exception as e:
+            print("Delete failed:", e)
+            return "❌ Failed to delete responses from the database."
     raise PreventUpdate
 
 
@@ -702,8 +660,34 @@ def form_submission(
         )
 
         global df
-        df = pd.concat([df, new_row], ignore_index=True)
-        df.to_csv(CSV_PATH, index=False)
+        try:
+            with engine.connect() as conn:
+                query = text("""
+                INSERT INTO responses (
+                    "Name", "Age Range", "Age", "Local", "Country", "State",
+                    "Christ Follower", "Faith Decicion", "How you found us?"
+                )
+                VALUES (
+                    :name, :age_range, :age, :local, :country, :state,
+                    :christ_follower, :faith_decicion, :how_found
+                )
+            """)
+
+                conn.execute(query, {
+                    "name": inpu,
+                    "age_range": age_category,
+                    "age": age_val,
+                    "local": local_value,
+                    "country": country_,
+                    "state": state_,
+                    "christ_follower": christian,
+                    "faith_decicion": faith,
+                    "how_found": howtheyfoundus,
+                })
+        except Exception as e:
+            print("Database insert error:", e)
+            return no_update, False, "Error saving your submission.", False
+
 
         # Set loading to true after successful submission
         return "local", "true", "", True
@@ -776,267 +760,187 @@ def get_chart_layout(chart_type):
             "Faith Decicion", "Faith Decision Count"
         )
     elif chart_type == "data":
-        return dash_table.DataTable(
-            data=df.to_dict("records"),
-            columns=[{"name": str(i), "id": str(i)} for i in df.columns],
-            style_table={"overflowX": "auto"},
-            style_cell={"textAlign": "left", "padding": "5px"},
-            style_header={"fontWeight": "bold"},
-        )
+        try:
+            with engine.connect() as conn:
+                df_sql = pd.read_sql("SELECT * FROM responses", conn)
+
+            return dash_table.DataTable(
+                data=df_sql.to_dict("records"),
+                columns=[{"name": str(i), "id": str(i)} for i in df_sql.columns],
+                style_table={"overflowX": "auto"},
+                style_cell={"textAlign": "left", "padding": "5px"},
+                style_header={"fontWeight": "bold"},
+                page_size=20,
+            )
+        except Exception as e:
+            print("View Data SQL query failed:", e)
+            return html.Div("❌ Could not load data from the database.")
     else:
         return html.Div("Unknown chart type.")
 
 
 def generate_us_map():
-    global df
-    dataframe = df
+    try:
+        with engine.connect() as conn:
+            result = conn.execute(text("""
+                SELECT state, COUNT(*) 
+                FROM responses 
+                WHERE state IS NOT NULL AND state != ''
+                GROUP BY state
+            """)).fetchall()
 
-    # Basic validation: check if 'State' column exists and has values
-    if (
-        dataframe.empty
-        or "State" not in dataframe.columns
-        or dataframe["State"].dropna().empty
-    ):
-        return html.Div(
-            "No state data available to display on map.",
-            style={"color": "gray", "textAlign": "center"},
+        if not result:
+            return html.Div("No state data available.", style={"color": "gray", "textAlign": "center"})
+
+        state_abbrev = {
+            "Alabama": "AL", "Alaska": "AK", "Arizona": "AZ", "Arkansas": "AR",
+            "California": "CA", "Colorado": "CO", "Connecticut": "CT", "Delaware": "DE",
+            "District Of Columbia": "DC", "Florida": "FL", "Georgia": "GA", "Hawaii": "HI",
+            "Idaho": "ID", "Illinois": "IL", "Indiana": "IN", "Iowa": "IA", "Kansas": "KS",
+            "Kentucky": "KY", "Louisiana": "LA", "Maine": "ME", "Maryland": "MD",
+            "Massachusetts": "MA", "Michigan": "MI", "Minnesota": "MN", "Mississippi": "MS",
+            "Missouri": "MO", "Montana": "MT", "Nebraska": "NE", "Nevada": "NV",
+            "New Hampshire": "NH", "New Jersey": "NJ", "New Mexico": "NM", "New York": "NY",
+            "North Carolina": "NC", "North Dakota": "ND", "Ohio": "OH", "Oklahoma": "OK",
+            "Oregon": "OR", "Pennsylvania": "PA", "Rhode Island": "RI",
+            "South Carolina": "SC", "South Dakota": "SD", "Tennessee": "TN", "Texas": "TX",
+            "Utah": "UT", "Vermont": "VT", "Virginia": "VA", "Washington": "WA",
+            "West Virginia": "WV", "Wisconsin": "WI", "Wyoming": "WY"
+        }
+
+        state_names, counts = zip(*result)
+        df_chart = pd.DataFrame({
+            "State": [s.strip().title() for s in state_names],
+            "Count": counts
+        })
+        df_chart["Code"] = df_chart["State"].map(state_abbrev)
+
+        fig = px.choropleth(
+            df_chart,
+            locations="Code",
+            locationmode="USA-states",
+            color="Count",
+            scope="usa",
+            color_continuous_scale="Blues",
         )
 
-    # Strip and normalize state names
-    dataframe["State"] = dataframe["State"].astype(str).str.strip().str.title()
-
-    # Count responses per state
-    state_counts = dataframe["State"].value_counts().reset_index()
-    state_counts.columns = ["State", "Count"]
-
-    # State name to abbreviation mapping
-    state_abbrev = {
-        "Alabama": "AL",
-        "Alaska": "AK",
-        "Arizona": "AZ",
-        "Arkansas": "AR",
-        "California": "CA",
-        "Colorado": "CO",
-        "Connecticut": "CT",
-        "Delaware": "DE",
-        "District Of Columbia": "DC",
-        "Florida": "FL",
-        "Georgia": "GA",
-        "Hawaii": "HI",
-        "Idaho": "ID",
-        "Illinois": "IL",
-        "Indiana": "IN",
-        "Iowa": "IA",
-        "Kansas": "KS",
-        "Kentucky": "KY",
-        "Louisiana": "LA",
-        "Maine": "ME",
-        "Maryland": "MD",
-        "Massachusetts": "MA",
-        "Michigan": "MI",
-        "Minnesota": "MN",
-        "Mississippi": "MS",
-        "Missouri": "MO",
-        "Montana": "MT",
-        "Nebraska": "NE",
-        "Nevada": "NV",
-        "New Hampshire": "NH",
-        "New Jersey": "NJ",
-        "New Mexico": "NM",
-        "New York": "NY",
-        "North Carolina": "NC",
-        "North Dakota": "ND",
-        "Ohio": "OH",
-        "Oklahoma": "OK",
-        "Oregon": "OR",
-        "Pennsylvania": "PA",
-        "Rhode Island": "RI",
-        "South Carolina": "SC",
-        "South Dakota": "SD",
-        "Tennessee": "TN",
-        "Texas": "TX",
-        "Utah": "UT",
-        "Vermont": "VT",
-        "Virginia": "VA",
-        "Washington": "WA",
-        "West Virginia": "WV",
-        "Wisconsin": "WI",
-        "Wyoming": "WY",
-    }
-
-    state_counts["Code"] = state_counts["State"].map(state_abbrev)
-
-    if state_counts["Code"].isnull().all():
-        return html.Div(
-            "Could not match any state names to abbreviations.",
-            style={"color": "red", "textAlign": "center"},
+        fig.update_layout(
+            title_text="Respondents by State",
+            geo=dict(scope="usa", bgcolor="#FEFAE0", lakecolor="#FEFAE0", showland=True, landcolor="#FAF3D3", showlakes=True),
+            paper_bgcolor="#FEFAE0",
+            plot_bgcolor="#FEFAE0",
         )
 
-    fig = px.choropleth(
-        state_counts,
-        locations="Code",
-        locationmode="USA-states",
-        color="Count",
-        scope="usa",
-        color_continuous_scale="Blues",
-    )
+        return html.Div(dcc.Graph(figure=fig), className="graph-object")
 
-    fig.update_layout(
-        title_text="Respondents by State",
-        geo=dict(lakecolor="rgb(255, 255, 255)"),
-    )
-
-    return html.Div(
-        dcc.Graph(figure=fig),
-        style={
-            "backgroundColor": "white",
-            "padding": "20px",
-            "borderRadius": "8px",
-            "boxShadow": "0 2px 8px rgba(0, 0, 0, 0.05)",
-            "border": "2px solid black",
-        },
-    )
+    except Exception as e:
+        print("Map chart query failed:", e)
+        return html.Div("Failed to load state map.")
 
 
-def local_counter():
-    label_map = {True: "Local", False: "Visitor"}
-    renamed_series = df["Local"].map(label_map)
+def local_counter_sql():
+    try:
+        with engine.connect() as conn:
+            result = conn.execute(text("""
+                SELECT local, COUNT(*) 
+                FROM responses 
+                GROUP BY local
+            """)).fetchall()
 
-    count_series = renamed_series.value_counts()
-    pie_df = pd.DataFrame(
-        {"Visitor": count_series.index, "Count": count_series.values}
-    )
+        if not result:
+            return html.Div("No data available.")
 
-    fig = px.pie(
-        pie_df,
-        names="Visitor",
-        values="Count",
-        color="Visitor",
-        color_discrete_map={"Local": "blue", "Visitor": "purple"},
-        hole=0.1,
-    )
+        label_map = {True: "Local", False: "Visitor"}
+        labels, counts = zip(*result)
+        labels_mapped = [label_map.get(l, "Unknown") for l in labels]
 
-    return dcc.Graph(
-        figure=style_pie_chart(fig, "Local vs Visitor"),
-        style={
-            "backgroundColor": "white",
-            "padding": "20px",
-            "borderRadius": "8px",
-            "boxShadow": "0 2px 8px rgba(0, 0, 0, 0.05)",
-            "border": "2px solid black",
-        },
-    )
+        df_chart = pd.DataFrame({"Visitor": labels_mapped, "Count": counts})
+
+        fig = px.pie(
+            df_chart,
+            names="Visitor",
+            values="Count",
+            color="Visitor",
+            color_discrete_map={"Local": "blue", "Visitor": "purple"},
+            hole=0.1,
+        )
+
+        return html.Div(dcc.Graph(figure=style_pie_chart(fig, "Local vs Visitor")), className="graph-object")
+
+    except Exception as e:
+        print("Local chart query failed:", e)
+        return html.Div("Failed to load chart.")
 
 
 def generate_pie_chart_from_column(column_name, title):
-    global df
-    if column_name not in df.columns or df.empty:
-        return html.Div(
-            "No data available.",
-            style={"textAlign": "center", "color": "gray"},
+    try:
+        with engine.connect() as conn:
+            result = conn.execute(text(f"""
+                SELECT "{column_name}", COUNT(*) 
+                FROM responses 
+                GROUP BY "{column_name}"
+            """)).fetchall()
+
+        if not result:
+            return html.Div("No data available.")
+
+        labels, counts = zip(*result)
+        df_chart = pd.DataFrame({"Label": labels, "Count": counts})
+
+        fig = px.pie(
+            df_chart,
+            names="Label",
+            values="Count",
+            hole=0.1,
         )
 
-    count_series = df[column_name].value_counts()
+        return html.Div(dcc.Graph(figure=style_pie_chart(fig, title)), className="graph-object")
 
-    # Automatically cycle through 6 colors
-    default_colors = [
-        "#636EFA",
-        "#EF553B",
-        "#00CC96",
-        "#AB63FA",
-        "#FFA15A",
-        "#19D3F3",
-    ]
-
-    fig = px.pie(
-        pd.DataFrame(
-            {"Label": count_series.index, "Count": count_series.values}
-        ),
-        names="Label",
-        values="Count",
-        hole=0.1,
-        color_discrete_sequence=default_colors,
-    )
-
-    fig.update_traces(
-        textposition="inside",
-        textinfo="percent+label",
-        hovertemplate="%{label}: %{value}<extra></extra>",
-    )
-
-    fig.update_layout(
-        title_text=title,
-        title_x=0.5,
-        legend_title_text="",
-        legend=dict(
-            orientation="h", yanchor="bottom", y=-0.2, xanchor="center", x=0.5
-        ),
-        margin=dict(t=50, b=80, l=30, r=30),
-        height=400,
-    )
-
-    return html.Div(
-        dcc.Graph(figure=fig),
-        style={
-            "backgroundColor": "white",
-            "padding": "20px",
-            "borderRadius": "8px",
-            "boxShadow": "0 2px 8px rgba(0, 0, 0, 0.05)",
-            "border": "2px solid black",
-        },
-    )
+    except Exception as e:
+        print("Chart query failed:", e)
+        return html.Div("Failed to load chart.")
 
 
 def generate_bar_chart_from_column(column_name, title):
-    global df
-    if column_name not in df.columns or df.empty:
-        return html.Div(
-            "No data available.",
-            style={"textAlign": "center", "color": "gray"},
+    try:
+        with engine.connect() as conn:
+            result = conn.execute(text(f"""
+                SELECT "{column_name}", COUNT(*) 
+                FROM responses 
+                GROUP BY "{column_name}"
+                ORDER BY "{column_name}"
+            """)).fetchall()
+
+        if not result:
+            return html.Div("No data available.")
+
+        labels, counts = zip(*result)
+        df_chart = pd.DataFrame({"Label": labels, "Count": counts})
+
+        fig = px.bar(
+            df_chart,
+            x="Label",
+            y="Count",
+            color="Label",
+            title=title,
         )
 
-    count_series = df[column_name].value_counts()
+        fig.update_layout(
+            xaxis_title=None,
+            yaxis_title="Count",
+            title_x=0.5,
+            margin=dict(t=50, b=80, l=30, r=30),
+            height=400,
+            showlegend=False,
+            paper_bgcolor="#FEFAE0",
+            plot_bgcolor="#FEFAE0",
+        )
 
-    # Automatically cycle through 6 colors
-    default_colors = [
-        "#636EFA",
-        "#EF553B",
-        "#00CC96",
-        "#AB63FA",
-        "#FFA15A",
-        "#19D3F3",
-    ]
-
-    fig = px.bar(
-        pd.DataFrame(
-            {"Label": count_series.index, "Count": count_series.values}
-        ),
-        x="Label",
-        y="Count",
-        color="Label",
-        color_discrete_sequence=default_colors,
-        title=title,
-    )
-
-    fig.update_traces(hovertemplate="%{x}: %{y}<extra></extra>")
-
-    fig.update_layout(
-        xaxis_title=None,
-        yaxis_title="Count",
-        title_x=0.5,
-        margin=dict(t=50, b=80, l=30, r=30),
-        height=400,
-        showlegend=False,
-    )
-
-    return html.Div(dcc.Graph(figure=fig),
-        style={
-            "backgroundColor": "white",
-            "padding": "20px",
-            "borderRadius": "8px",
-            "boxShadow": "0 2px 8px rgba(0, 0, 0, 0.05)",
-            "border": "2px solid black",
-        })
+        return html.Div(dcc.Graph(figure=fig), className="graph-output")
+    
+    except Exception as e:
+        print("Bar chart query failed:", e)
+        return html.Div("Failed to load chart.")
 
 
 from dash import MATCH
@@ -1069,13 +973,13 @@ def grant_admin_access(code):
                     "Download CSV",
                     id="download-btn",
                     type="button",
-                    className="custom-button",
+                    className="custom-button-dev",
                     classNameProp=True,
                 ),
                 html.Button(
                     "View Data",
                     id="data_button",
-                    className="custom-button",
+                    className="custom-button-dev",
                     classNameProp=True,
                     type="button",
                 ),
@@ -1083,7 +987,7 @@ def grant_admin_access(code):
                     "Clear Cookies (Dev)",
                     id="dev-clear-cookies",
                     n_clicks=0,
-                    className="custom-button",
+                    className="custom-button-dev",
                 ),
                 dcc.Download(id="download"),
                 html.Div(
@@ -1093,7 +997,7 @@ def grant_admin_access(code):
                             id="delete-button",
                             n_clicks=0,
                             style={"color": "red"},
-                            className="custom-button",
+                            className="custom-button-dev",
                             classNameProp=True,
                         ),
                         html.Div(
@@ -1139,8 +1043,13 @@ def dev_clear_cookie(n_clicks):
     prevent_initial_call=True,
 )
 def download_data(n_clicks):
-    if n_clicks > 0:
-        return dcc.send_data_frame(df.to_csv, "responses.csv", index=False)
+    try:
+        with engine.connect() as conn:
+            df_sql = pd.read_sql("SELECT * FROM responses", conn)
+        return dcc.send_data_frame(df_sql.to_csv, "responses.csv", index=False)
+    except Exception as e:
+        print("CSV download failed:", e)
+        raise PreventUpdate
 
 
 @app.server.after_request
@@ -1176,6 +1085,8 @@ def style_pie_chart(fig, title):
         ),
         margin=dict(t=50, b=80, l=30, r=30),
         height=400,
+        paper_bgcolor="#FEFAE0",   # Match your site's background
+        plot_bgcolor="#FEFAE0",    # Match the plotting area too
     )
     return fig
 
